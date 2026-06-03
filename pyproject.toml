@@ -1,6 +1,17 @@
 [project]
 name = "blent-ai-home-insurance-claims-agent"
 version = "0.1.0"
-description = "Multi-agent AI system for home insurance claims processing (declaration, validation, expertise) — built with Python, LangChain & open-weight LLMs."
+description = "Multi-agent AI pipeline for home insurance claims (AssurHabitat)"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "transformers>=4.45.0",
+    "torch>=2.0.0",
+    "accelerate>=0.30.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
