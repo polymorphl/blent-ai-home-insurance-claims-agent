@@ -1,0 +1,6 @@
+[project]
+name = "blent-ai-home-insurance-claims-agent"
+version = "0.1.0"
+description = "Multi-agent AI system for home insurance claims processing (declaration, validation, expertise) — built with Python, LangChain & open-weight LLMs."
+requires-python = ">=3.14"
+dependencies = []
