@@ -42,6 +42,22 @@ EXTRACT_TOOL_SCHEMA = {
 }
 
 
+def validate_date(date_str: str | None) -> str | None:
+    """Return the date if it falls within a plausible range (last 5 years to today), else None."""
+    if date_str is None:
+        return None
+    from datetime import date, datetime
+    try:
+        parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
+        today = date.today()
+        five_years_ago = today.replace(year=today.year - 5)
+        if five_years_ago <= parsed <= today:
+            return date_str
+    except ValueError:
+        pass
+    return None
+
+
 def merge_claim_data(existing: dict, new_fields: dict) -> dict:
     """Merge new extracted fields into existing claim data, keeping non-null values."""
     result = dict(existing)

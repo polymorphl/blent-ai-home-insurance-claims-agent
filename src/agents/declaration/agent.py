@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
@@ -10,7 +11,7 @@ from src.agents.declaration.prompts import (
     follow_up_prompt,
 )
 from src.agents.declaration.state import ClaimState
-from src.agents.declaration.tools import REQUIRED_FIELDS, merge_claim_data
+from src.agents.declaration.tools import REQUIRED_FIELDS, merge_claim_data, validate_date
 
 
 def check_completeness(state: ClaimState) -> dict:
@@ -64,10 +65,11 @@ def make_extract_fields_node(inference):
                 history_messages.append({"role": "assistant", "content": msg.content})
 
         messages = [
-            {"role": "system", "content": EXTRACT_SYSTEM_PROMPT},
+            {"role": "system", "content": EXTRACT_SYSTEM_PROMPT.format(today=date.today().isoformat())},
             *history_messages,
         ]
         new_fields = inference.extract(messages)
+        new_fields["date"] = validate_date(new_fields.get("date"))
         merged = merge_claim_data(state.get("claim_data", {}), new_fields)
         return {"claim_data": merged}
 
