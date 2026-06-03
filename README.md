@@ -17,7 +17,7 @@ cp .env.example .env
 
 Run 3 simulated examples:
 ```bash
-uv run python -m src.main
+uv run python run.py
 ```
 
 Run evaluation on golden dataset:
