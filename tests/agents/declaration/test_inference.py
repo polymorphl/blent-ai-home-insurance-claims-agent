@@ -1,6 +1,22 @@
 from src.agents.declaration.inference import HFInference
 
 
+def test_parse_tool_call_qwen():
+    inf = HFInference.__new__(HFInference)
+    output = (
+        '<tool_call>{"name": "extract_claim_fields", "arguments": '
+        '{"date": "2025-09-10", "incident_type": "fire", '
+        '"description": "Incendie dans la chambre.", "has_photos": true}}</tool_call>'
+    )
+    result = inf._parse_tool_call(output)
+    assert result == {
+        "date": "2025-09-10",
+        "incident_type": "fire",
+        "description": "Incendie dans la chambre.",
+        "has_photos": True,
+    }
+
+
 def test_parse_tool_call_python_tag():
     inf = HFInference.__new__(HFInference)
     output = (

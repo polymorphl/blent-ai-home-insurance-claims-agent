@@ -6,5 +6,8 @@ __pycache__/
 # MacOS
 .DS_Store
 
+# Env
+.env
+
 # Data
 data/attachments/

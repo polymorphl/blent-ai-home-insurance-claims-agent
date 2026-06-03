@@ -9,6 +9,12 @@ Install dependencies:
 uv sync
 ```
 
+Set up environment variables:
+```bash
+cp .env.example .env
+# Add your HuggingFace token to .env
+```
+
 Run 3 simulated examples:
 ```bash
 uv run python -m src.main
@@ -100,7 +106,7 @@ scripts/
 ## Tech Stack
 
 - **Orchestration**: LangGraph (multi-agent workflow)
-- **LLM**: HuggingFace transformers (Llama 3.1 8B Instruct)
+- **LLM**: HuggingFace transformers (Qwen2.5-7B-Instruct)
 - **Testing**: pytest
 
 ---

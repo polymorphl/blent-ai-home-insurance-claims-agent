@@ -4,7 +4,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.config import DEVICE, MAX_NEW_TOKENS, MODEL_NAME, TEMPERATURE, TORCH_DTYPE
+from src.config import DEVICE, HF_TOKEN, MAX_NEW_TOKENS, MODEL_NAME, TEMPERATURE, TORCH_DTYPE
 from src.agents.declaration.tools import EXTRACT_TOOL_SCHEMA
 
 
@@ -12,11 +12,12 @@ class HFInference:
     """Wrapper for running inference with a Hugging Face language model."""
     def __init__(self):
         """Load the model and tokenizer from the configured model name."""
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, token=HF_TOKEN)
         self.model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
-            torch_dtype=getattr(torch, TORCH_DTYPE),
+            dtype=getattr(torch, TORCH_DTYPE),
             device_map=DEVICE,
+            token=HF_TOKEN,
         )
         self.model.eval()
 
@@ -63,10 +64,21 @@ class HFInference:
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
     def _parse_tool_call(self, output_text: str) -> dict:
-        """Extract and parse the tool call JSON from model output, with fallback extraction."""
-        match = re.search(
-            r"<\|python_tag\|>(.*?)(?:<\|eom_id\|>|$)", output_text, re.DOTALL
-        )
+        """Extract and parse the tool call JSON from model output, with fallback extraction.
+
+        Handles Qwen2.5 (<tool_call>) and Llama 3.1 (<|python_tag|>) formats.
+        """
+        # Qwen2.5 format: <tool_call>{"name": ..., "arguments": {...}}</tool_call>
+        match = re.search(r"<tool_call>(.*?)</tool_call>", output_text, re.DOTALL)
+        if match:
+            try:
+                call = json.loads(match.group(1).strip())
+                return call.get("arguments", {})
+            except json.JSONDecodeError:
+                pass
+
+        # Llama 3.1 format: <|python_tag|>{"name": ..., "parameters": {...}}<|eom_id|>
+        match = re.search(r"<\|python_tag\|>(.*?)(?:<\|eom_id\|>|$)", output_text, re.DOTALL)
         if match:
             try:
                 call = json.loads(match.group(1).strip())
@@ -74,6 +86,7 @@ class HFInference:
             except json.JSONDecodeError:
                 pass
 
+        # Fallback: bare JSON object containing "date"
         match = re.search(r"\{[^{}]*\"date\"[^{}]*\}", output_text, re.DOTALL)
         if match:
             try:

@@ -9,7 +9,12 @@ dependencies = [
     "transformers>=4.45.0",
     "torch>=2.0.0",
     "accelerate>=0.30.0",
+    "python-dotenv>=1.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [
