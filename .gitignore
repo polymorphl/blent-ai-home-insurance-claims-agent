@@ -9,5 +9,8 @@ __pycache__/
 # Env
 .env
 
+# Model cache
+models/
+
 # Data
 data/attachments/

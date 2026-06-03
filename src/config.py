@@ -11,3 +11,4 @@ MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.1
 
 HF_TOKEN = os.getenv("HF_TOKEN")
+MODEL_CACHE_DIR = os.getenv("MODEL_CACHE_DIR", "./models")

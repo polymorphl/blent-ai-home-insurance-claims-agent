@@ -4,7 +4,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.config import DEVICE, HF_TOKEN, MAX_NEW_TOKENS, MODEL_NAME, TEMPERATURE, TORCH_DTYPE
+from src.config import DEVICE, HF_TOKEN, MAX_NEW_TOKENS, MODEL_CACHE_DIR, MODEL_NAME, TEMPERATURE, TORCH_DTYPE
 from src.agents.declaration.tools import EXTRACT_TOOL_SCHEMA
 
 
@@ -12,23 +12,31 @@ class HFInference:
     """Wrapper for running inference with a Hugging Face language model."""
     def __init__(self):
         """Load the model and tokenizer from the configured model name."""
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, token=HF_TOKEN)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
+        )
         self.model = AutoModelForCausalLM.from_pretrained(
             MODEL_NAME,
             dtype=getattr(torch, TORCH_DTYPE),
             device_map=DEVICE,
             token=HF_TOKEN,
+            cache_dir=MODEL_CACHE_DIR,
         )
         self.model.eval()
 
+    def _tokenize(self, messages: list[dict], tools: list | None = None) -> torch.Tensor:
+        """Render chat template and tokenize, always returning a plain input_ids tensor."""
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tools=tools,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        return self.tokenizer(text, return_tensors="pt")["input_ids"].to(self.model.device)
+
     def extract(self, messages: list[dict]) -> dict:
         """Extract claim fields from conversation messages using the model's tool-calling capability."""
-        input_ids = self.tokenizer.apply_chat_template(
-            messages,
-            tools=[EXTRACT_TOOL_SCHEMA],
-            add_generation_prompt=True,
-            return_tensors="pt",
-        ).to(self.model.device)
+        input_ids = self._tokenize(messages, tools=[EXTRACT_TOOL_SCHEMA])
 
         with torch.no_grad():
             output_ids = self.model.generate(
@@ -45,11 +53,7 @@ class HFInference:
 
     def generate(self, messages: list[dict]) -> str:
         """Generate a text response from the model without tool calling."""
-        input_ids = self.tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            return_tensors="pt",
-        ).to(self.model.device)
+        input_ids = self._tokenize(messages)
 
         with torch.no_grad():
             output_ids = self.model.generate(
