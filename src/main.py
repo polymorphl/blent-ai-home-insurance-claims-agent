@@ -49,7 +49,6 @@ def run_example(app, example: dict) -> dict | None:
 
 def main():
     """Load the model and run all example claim scenarios."""
-    print("⌛ Loading model...")
     inference = HFInference()
     app = build_graph(inference)
 

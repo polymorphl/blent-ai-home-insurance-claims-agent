@@ -1,5 +1,8 @@
+import sys
 import json
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from langchain_core.messages import HumanMessage
 
@@ -53,7 +56,6 @@ def main():
     with open(dataset_path) as f:
         dataset = json.load(f)
 
-    print("Loading model...")
     inference = HFInference()
     app = build_graph(inference)
 

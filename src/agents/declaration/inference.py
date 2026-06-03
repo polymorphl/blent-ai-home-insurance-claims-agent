@@ -11,17 +11,21 @@ from src.agents.declaration.tools import EXTRACT_TOOL_SCHEMA
 class HFInference:
     """Wrapper for running inference with a Hugging Face language model."""
     def __init__(self):
-        """Load the model and tokenizer from the configured model name."""
+        """Load the tokenizer and model, printing progress to stdout."""
+        print(f"⌛ Loading model {MODEL_NAME}...")
         self.tokenizer = AutoTokenizer.from_pretrained(
             MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
         )
-        self.model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME,
-            dtype=getattr(torch, TORCH_DTYPE),
-            device_map=DEVICE,
-            token=HF_TOKEN,
-            cache_dir=MODEL_CACHE_DIR,
-        )
+        load_kwargs = {
+            "dtype": getattr(torch, TORCH_DTYPE),
+            "token": HF_TOKEN,
+            "cache_dir": MODEL_CACHE_DIR,
+        }
+        if DEVICE == "cuda":
+            load_kwargs["device_map"] = "auto"
+        self.model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, **load_kwargs)
+        if DEVICE != "cuda":
+            self.model = self.model.to(DEVICE)
         self.model.eval()
 
     def _tokenize(self, messages: list[dict], tools: list | None = None) -> torch.Tensor:
@@ -32,15 +36,18 @@ class HFInference:
             add_generation_prompt=True,
             tokenize=False,
         )
-        return self.tokenizer(text, return_tensors="pt")["input_ids"].to(self.model.device)
+        return self.tokenizer(text, return_tensors="pt", return_attention_mask=True)
 
     def extract(self, messages: list[dict]) -> dict:
         """Extract claim fields from conversation messages using the model's tool-calling capability."""
-        input_ids = self._tokenize(messages, tools=[EXTRACT_TOOL_SCHEMA])
+        encoding = self._tokenize(messages, tools=[EXTRACT_TOOL_SCHEMA])
+        input_ids = encoding["input_ids"].to(self.model.device)
+        attention_mask = encoding["attention_mask"].to(self.model.device)
 
         with torch.no_grad():
             output_ids = self.model.generate(
                 input_ids,
+                attention_mask=attention_mask,
                 max_new_tokens=MAX_NEW_TOKENS,
                 temperature=TEMPERATURE,
                 do_sample=TEMPERATURE > 0,
@@ -53,11 +60,14 @@ class HFInference:
 
     def generate(self, messages: list[dict]) -> str:
         """Generate a text response from the model without tool calling."""
-        input_ids = self._tokenize(messages)
+        encoding = self._tokenize(messages)
+        input_ids = encoding["input_ids"].to(self.model.device)
+        attention_mask = encoding["attention_mask"].to(self.model.device)
 
         with torch.no_grad():
             output_ids = self.model.generate(
                 input_ids,
+                attention_mask=attention_mask,
                 max_new_tokens=MAX_NEW_TOKENS,
                 temperature=TEMPERATURE,
                 do_sample=TEMPERATURE > 0,
