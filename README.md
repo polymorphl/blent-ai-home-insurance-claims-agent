@@ -4,8 +4,19 @@ Multi-agent AI pipeline to automate home insurance claims processing for AssurHa
 
 ## Run
 
+Install dependencies:
+```bash
+uv sync
+```
+
+Run 3 simulated examples:
 ```bash
 uv run python -m src.main
+```
+
+Run evaluation on golden dataset:
+```bash
+uv run python scripts/evaluate_declaration.py
 ```
 
 ---
@@ -68,9 +79,37 @@ Agents are evaluated against a Golden Dataset built for this project. No thresho
 
 ---
 
+## Project Structure
+
+```
+src/
+├── config.py
+├── main.py
+├── examples.py
+└── agents/
+    └── declaration/
+        ├── state.py
+        ├── tools.py
+        ├── prompts.py
+        ├── inference.py
+        └── agent.py
+scripts/
+└── evaluate_declaration.py
+```
+
+## Tech Stack
+
+- **Orchestration**: LangGraph (multi-agent workflow)
+- **LLM**: HuggingFace transformers (Llama 3.1 8B Instruct)
+- **Testing**: pytest
+
+---
+
 ## Step 1 — Declaration Agent
 
 **Goal**: Collect all required information to open a claim file.
+
+### Agent Flow
 
 The agent converses with the policyholder and ensures the following elements are present:
 
