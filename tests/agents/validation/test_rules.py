@@ -173,3 +173,15 @@ def test_coverage_passes_theft_exactly_at_deadline():
     claim = {"date": "2026-06-02", "incident_type": "theft",
              "description": "Cambriolage.", "has_photos": True}
     assert check_coverage(claim, today=date(2026, 6, 4)) == []
+
+
+def test_validation_state_has_photo_errors_field():
+    state: ValidationState = {
+        "claim": {},
+        "conformity_errors": [],
+        "coverage_errors": [],
+        "photo_errors": [],
+        "verdict": None,
+        "today_override": None,
+    }
+    assert state["photo_errors"] == []

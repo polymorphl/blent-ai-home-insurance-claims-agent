@@ -1,13 +1,17 @@
+from pathlib import Path
+from unittest.mock import MagicMock
+
 from src.agents.validation.agent import build_graph
 from tests.agents.validation.conftest import FIXED_TODAY
 
 
-def _run(claim, today=FIXED_TODAY):
-    app = build_graph()
+def _run(claim, today=FIXED_TODAY, vlm_inference=None, attachments_dir=None):
+    app = build_graph(vlm_inference=vlm_inference, attachments_dir=attachments_dir)
     return app.invoke({
         "claim": claim,
         "conformity_errors": [],
         "coverage_errors": [],
+        "photo_errors": [],
         "verdict": None,
         "today_override": today,
     })
@@ -63,3 +67,65 @@ def test_rejected_unknown_incident_type():
     result = _run(claim)
     assert result["verdict"]["status"] == "rejected"
     assert "contrat" in result["verdict"]["reason"].lower()
+
+
+def test_photo_check_skipped_when_no_vlm(approved_claim):
+    approved_claim["photo_filenames"] = ["WaterDamage_100.jpg"]
+    result = _run(approved_claim, vlm_inference=None)
+    assert result["verdict"]["status"] == "approved"
+
+
+def test_photo_check_skipped_when_no_filenames(approved_claim):
+    approved_claim["photo_filenames"] = []
+    mock_vlm = MagicMock()
+    result = _run(approved_claim, vlm_inference=mock_vlm)
+    mock_vlm.check_photo_coherence.assert_not_called()
+    assert result["verdict"]["status"] == "approved"
+
+
+def test_photo_check_ignores_absent_file(approved_claim, tmp_path):
+    approved_claim["photo_filenames"] = ["nonexistent.jpg"]
+    mock_vlm = MagicMock()
+    result = _run(approved_claim, vlm_inference=mock_vlm, attachments_dir=tmp_path)
+    mock_vlm.check_photo_coherence.assert_not_called()
+    assert result["verdict"]["status"] == "approved"
+
+
+def test_photo_check_approved_when_majority_match(approved_claim, tmp_path):
+    for name in ["a.jpg", "b.jpg", "c.jpg"]:
+        (tmp_path / name).write_bytes(b"fake")
+    approved_claim["photo_filenames"] = ["a.jpg", "b.jpg", "c.jpg"]
+    mock_vlm = MagicMock()
+    mock_vlm.check_photo_coherence.side_effect = [True, True, False]  # 2/3 = 67%
+    result = _run(approved_claim, vlm_inference=mock_vlm, attachments_dir=tmp_path)
+    assert result["verdict"]["status"] == "approved"
+
+
+def test_photo_check_rejected_when_exactly_half_match(approved_claim, tmp_path):
+    for name in ["a.jpg", "b.jpg"]:
+        (tmp_path / name).write_bytes(b"fake")
+    approved_claim["photo_filenames"] = ["a.jpg", "b.jpg"]
+    mock_vlm = MagicMock()
+    mock_vlm.check_photo_coherence.side_effect = [True, False]  # 1/2 = 50% → rejected
+    result = _run(approved_claim, vlm_inference=mock_vlm, attachments_dir=tmp_path)
+    assert result["verdict"]["status"] == "rejected"
+    assert "photo" in result["verdict"]["reason"].lower()
+
+
+def test_photo_check_rejected_when_none_match(approved_claim, tmp_path):
+    for name in ["a.jpg", "b.jpg"]:
+        (tmp_path / name).write_bytes(b"fake")
+    approved_claim["photo_filenames"] = ["a.jpg", "b.jpg"]
+    mock_vlm = MagicMock()
+    mock_vlm.check_photo_coherence.side_effect = [False, False]
+    result = _run(approved_claim, vlm_inference=mock_vlm, attachments_dir=tmp_path)
+    assert result["verdict"]["status"] == "rejected"
+
+
+def test_photo_check_skipped_when_coverage_fails(rejected_claim_deadline):
+    rejected_claim_deadline["photo_filenames"] = ["a.jpg"]
+    mock_vlm = MagicMock()
+    result = _run(rejected_claim_deadline, vlm_inference=mock_vlm)
+    mock_vlm.check_photo_coherence.assert_not_called()
+    assert result["verdict"]["status"] == "rejected"
+    assert "Délai" in result["verdict"]["reason"]

@@ -6,5 +6,6 @@ class ValidationState(TypedDict, total=False):
     claim: dict
     conformity_errors: list[str]
     coverage_errors: list[str]
+    photo_errors: list[str]
     verdict: dict | None
     today_override: str | None
