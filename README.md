@@ -81,13 +81,15 @@ uv run python scripts/evaluate_validation.py
 
 ## Evaluation
 
-Agents are evaluated against a Golden Dataset built for this project. No threshold is defined yet — metrics serve as a baseline for discussion.
+Agents are evaluated against Golden Datasets built for this project. No threshold is defined yet — metrics serve as a baseline for discussion.
 
-| Agent | Metric |
-|---|---|
-| **Declaration Agent** | Completeness of collected information |
-| **Validation Agent** | Accuracy of contract fact retrieval relative to the declared claim |
-| **Expertise Agent** | No automated evaluation — assessed manually by domain experts |
+| Agent | Dataset | Metric |
+|---|---|---|
+| **Declaration Agent** | `data/golden_dataset.json` (3 cases) | Completeness of collected fields |
+| **Validation Agent** | `data/golden_dataset_validation.json` (6 cases) | Accuracy of verdict (approved / rejected) |
+| **Expertise Agent** | — | No automated evaluation — assessed manually by domain experts |
+
+Each dataset uses fixed reference dates (`today_override`) to ensure reproducibility regardless of when evaluation is run.
 
 ---
 
