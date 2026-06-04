@@ -19,37 +19,37 @@ EXAMPLES = [
     # --- Approved cases ---
     {
         "id": "ex1_water_damage_approved",
-        "description": "Water damage — relative date ('hier soir'), photo present, 2-turn",
+        "description": "Water damage — relative date ('hier soir'), real photo, 2-turn",
         "turns": [
             (
                 "Bonjour,\n\nIl y a eu une fuite dans ma cuisine hier soir à cause de mon voisin du dessus. "
                 "Son lave-vaisselle a été mal installé et du coup, le mur est infiltré d'eau et la peinture "
-                "se détache (ci-joint une photo).\n\nCordialement.\n\n[Pièce jointe : IMG_4580.jpg]"
+                "se détache (ci-joint une photo).\n\nCordialement.\n\n[Pièce jointe : WaterDamage_100.jpg]"
             ),
             f"La fuite a été constatée le {_yesterday}.",
         ],
     },
     {
         "id": "ex2_fire_approved",
-        "description": "Fire — complete in 1 turn, explicit recent date",
+        "description": "Fire — complete in 1 turn, real fire photos",
         "turns": [
             (
                 f"Bonjour,\n\nLe {_2d_ago}, un feu s'est déclaré dans la chambre à cause d'un appareil "
                 "défectueux, et a endommagé une grande partie de la pièce. Je souhaiterai être indemnisé "
                 "pour pouvoir effectuer les travaux nécessaires.\n\nBien cordialement.\n\n"
-                "[Pièce jointe : Chambre_1.jpg]\n[Pièce jointe : Chambre_2.jpg]"
+                "[Pièce jointe : FireDamage_45.jpg]\n[Pièce jointe : FireDamage_31.jpg]"
             ),
         ],
     },
     {
-        "id": "ex3_theft_approved",
-        "description": "Theft — missing date and photos initially, provided on turn 2",
+        "id": "ex3_theft_no_photos",
+        "description": "Theft — missing date initially; no photos available → rejected at conformity (photos required for theft)",
         "turns": [
             (
                 "Bonjour, on m'a cambriolé ce matin, les voleurs sont passés par le vélux de la chambre "
                 "et ont volé tous les appareils électroniques. Merci de me contacter rapidement."
             ),
-            f"Le cambriolage a eu lieu le {_yesterday}.\n[Pièce jointe : photo_effraction.jpg]",
+            f"Le cambriolage a eu lieu le {_yesterday}. Je n'avais pas de photos de l'effraction.",
         ],
     },
     # --- Rejected cases ---
@@ -60,13 +60,13 @@ EXAMPLES = [
             (
                 f"Bonjour, j'ai été victime d'un cambriolage le {_30d_ago}. Les voleurs ont forcé la porte "
                 "d'entrée et emporté ma télévision, mon ordinateur et des bijoux. "
-                "Je dépose ma déclaration aujourd'hui.\n\n[Pièce jointe : porte_forcee.jpg]"
+                "Je dépose ma déclaration aujourd'hui.\n\n[Pièce jointe : photo_effraction.jpg]"
             ),
         ],
     },
     {
         "id": "ex5_water_damage_no_photos",
-        "description": "Water damage — no photos, rejected at validation",
+        "description": "Water damage — no photos, rejected at conformity check",
         "turns": [
             (
                 f"Bonjour,\n\nUne fuite est apparue dans mon salon le {_3d_ago} suite à une rupture de "
@@ -76,14 +76,13 @@ EXAMPLES = [
         ],
     },
     {
-        "id": "ex6_fire_old_date",
-        "description": "Fire — declaration 10 days after incident, exceeds 5-day limit",
+        "id": "ex6_fire_wrong_photos",
+        "description": "Fire — recent date, but photos show water damage → rejected for photo incoherence",
         "turns": [
             (
-                f"Bonjour,\n\nUn incendie s'est déclaré le {_10d_ago} dans ma cuisine à cause d'une plaque "
-                "de cuisson laissée allumée. Les dommages sont conséquents. Je reviens de vacances et "
-                "je déclare le sinistre dès maintenant.\n\nBien cordialement.\n\n"
-                "[Pièce jointe : cuisine_incendie.jpg]"
+                f"Bonjour,\n\nUn incendie s'est déclaré le {_2d_ago} dans ma cuisine. "
+                "Les dommages sont importants.\n\nBien cordialement.\n\n"
+                "[Pièce jointe : WaterDamage_176.jpg]\n[Pièce jointe : WaterDamage_100.jpg]"
             ),
         ],
     },

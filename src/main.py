@@ -3,6 +3,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.agents.declaration.agent import build_graph as build_declaration_graph
 from src.agents.declaration.inference import HFInference
 from src.agents.validation.agent import build_graph as build_validation_graph
+from src.agents.validation.vlm_inference import VLMInference
 from src.examples import EXAMPLES
 
 
@@ -16,7 +17,7 @@ def run_declaration(app, example: dict) -> dict | None:
     first_turn = True
 
     for i, content in enumerate(example["turns"]):
-        print(f"\n[Turn {i + 1}] User: {content[:100]}...")
+        print(f"\n[Turn {i + 1}] User: {content}")
 
         if first_turn:
             state = {
@@ -54,6 +55,7 @@ def run_validation(app, final_claim: dict) -> dict:
         "claim": final_claim,
         "conformity_errors": [],
         "coverage_errors": [],
+        "photo_errors": [],
         "verdict": None,
         "today_override": None,
     })
@@ -67,10 +69,11 @@ def run_validation(app, final_claim: dict) -> dict:
 
 
 def main():
-    """Load the model and run the full pipeline (Declaration → Validation) on all examples."""
+    """Load models and run the full pipeline (Declaration → Validation) on all examples."""
     inference = HFInference()
+    vlm = VLMInference()
     declaration_app = build_declaration_graph(inference)
-    validation_app = build_validation_graph()
+    validation_app = build_validation_graph(vlm_inference=vlm)
 
     for example in EXAMPLES:
         final_claim = run_declaration(declaration_app, example)
