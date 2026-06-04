@@ -115,3 +115,53 @@ def test_conformity_fail_fast_returns_one_error():
              "description": None, "has_photos": None}
     errors = check_conformity(claim)
     assert len(errors) == 1
+
+
+from src.agents.validation.rules import check_coverage
+
+
+def test_coverage_passes_water_damage_within_deadline():
+    claim = {"date": "2026-06-02", "incident_type": "water_damage",
+             "description": "Fuite.", "has_photos": True}
+    # 2 business days before 2026-06-04 (Wed→Thu) — within 5-day limit
+    assert check_coverage(claim, today=date(2026, 6, 4)) == []
+
+
+def test_coverage_passes_theft_within_deadline():
+    claim = {"date": "2026-06-03", "incident_type": "theft",
+             "description": "Cambriolage.", "has_photos": True}
+    # 1 business day before 2026-06-04 — within 2-day limit
+    assert check_coverage(claim, today=date(2026, 6, 4)) == []
+
+
+def test_coverage_fails_theft_deadline_exceeded():
+    claim = {"date": "2026-05-28", "incident_type": "theft",
+             "description": "Cambriolage.", "has_photos": True}
+    # 2026-05-28 (Thu) → 2026-06-04 (Thu) = 5 business days > 2-day limit
+    errors = check_coverage(claim, today=date(2026, 6, 4))
+    assert len(errors) == 1
+    assert "2" in errors[0]   # deadline_days
+    assert "5" in errors[0]   # elapsed days
+
+
+def test_coverage_fails_water_damage_deadline_exceeded():
+    claim = {"date": "2026-05-26", "incident_type": "water_damage",
+             "description": "Fuite.", "has_photos": True}
+    # 2026-05-26 (Tue) → 2026-06-04 (Thu) = 7 business days > 5-day limit
+    errors = check_coverage(claim, today=date(2026, 6, 4))
+    assert len(errors) == 1
+    assert "5" in errors[0]   # deadline_days
+
+
+def test_coverage_fails_unknown_incident_type():
+    claim = {"date": "2026-06-03", "incident_type": "earthquake",
+             "description": "Tremblement de terre.", "has_photos": True}
+    errors = check_coverage(claim, today=date(2026, 6, 4))
+    assert len(errors) == 1
+    assert "contrat" in errors[0].lower()
+
+
+def test_coverage_fire_returns_correct_rules():
+    claim = {"date": "2026-06-03", "incident_type": "fire",
+             "description": "Incendie.", "has_photos": True}
+    assert check_coverage(claim, today=date(2026, 6, 4)) == []

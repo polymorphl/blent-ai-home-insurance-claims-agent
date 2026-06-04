@@ -33,3 +33,18 @@ def check_conformity(claim: dict) -> list[str]:
     if claim.get("has_photos") is False:
         return [f"Des photos sont requises pour un sinistre de type {claim['incident_type']}."]
     return []
+
+
+def check_coverage(claim: dict, today: date | None = None) -> list[str]:
+    """Return a list with at most one coverage error (fail-fast)."""
+    incident_type = claim.get("incident_type")
+    if incident_type not in COVERAGE_RULES:
+        return ["Ce sinistre n'est pas pris en charge par votre contrat."]
+    rule = COVERAGE_RULES[incident_type]
+    elapsed = business_days_since(claim["date"], today=today)
+    if elapsed > rule["deadline_days"]:
+        return [
+            f"Délai de déclaration dépassé "
+            f"({rule['deadline_days']} jours ouvrés requis, {elapsed} écoulés)."
+        ]
+    return []
