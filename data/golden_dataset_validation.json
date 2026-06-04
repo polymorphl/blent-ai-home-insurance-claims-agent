@@ -1,0 +1,74 @@
+[
+  {
+    "id": "val_fire_approved",
+    "description": "Fire declared 1 business day after incident — approved",
+    "claim": {
+      "date": "2026-06-03",
+      "incident_type": "fire",
+      "description": "Incendie dans la chambre à cause d'un appareil défectueux.",
+      "has_photos": true
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "approved"}
+  },
+  {
+    "id": "val_theft_approved",
+    "description": "Theft declared same day — approved",
+    "claim": {
+      "date": "2026-06-04",
+      "incident_type": "theft",
+      "description": "Cambriolage par le vélux, appareils électroniques volés.",
+      "has_photos": true
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "approved"}
+  },
+  {
+    "id": "val_missing_description",
+    "description": "Missing description field — rejected",
+    "claim": {
+      "date": "2026-06-03",
+      "incident_type": "water_damage",
+      "description": null,
+      "has_photos": true
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "rejected"}
+  },
+  {
+    "id": "val_no_photos",
+    "description": "has_photos=false for theft — rejected",
+    "claim": {
+      "date": "2026-06-03",
+      "incident_type": "theft",
+      "description": "Cambriolage.",
+      "has_photos": false
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "rejected"}
+  },
+  {
+    "id": "val_theft_deadline_exceeded",
+    "description": "Theft declared 5 business days after incident — rejected (limit: 2)",
+    "claim": {
+      "date": "2026-05-28",
+      "incident_type": "theft",
+      "description": "Cambriolage par effraction.",
+      "has_photos": true
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "rejected"}
+  },
+  {
+    "id": "val_water_damage_within_deadline",
+    "description": "Water damage declared 4 business days after incident — approved (limit: 5)",
+    "claim": {
+      "date": "2026-05-29",
+      "incident_type": "water_damage",
+      "description": "Fuite du lave-vaisselle du voisin, mur infiltré d'eau.",
+      "has_photos": true
+    },
+    "today_override": "2026-06-04",
+    "expected": {"status": "approved"}
+  }
+]
