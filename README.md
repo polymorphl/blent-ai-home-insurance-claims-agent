@@ -38,7 +38,7 @@ See [GRAPHS.md](GRAPHS.md) for Mermaid diagrams of each agent's internal flow.
 
 - **Data stays on-premise** — no calls to OpenAI, Anthropic, or any external API; all inference runs locally
 - **Open-weight models only** — currently Qwen2.5-7B-Instruct for text (tool calling + generation); a VLM will be required for the Expertise Agent (image analysis)
-- **GPU required for LLM agents** — Declaration Agent needs a CUDA/MPS-capable device; rule-based agents (Validation) run on CPU
+- **GPU required** — Declaration Agent (Qwen2.5-7B-Instruct) and Validation Agent (Qwen2.5-VL-7B-Instruct for photo coherence) both require a CUDA/MPS-capable device
 - **No UI** — the pipeline runs asynchronously in the background, one graph invocation per claim
 - **Structured handoff** — each agent outputs a typed dict consumed directly by the next; no free-text passing between agents
 
@@ -119,6 +119,7 @@ src/
     └── validation/
         ├── state.py
         ├── rules.py
+        ├── vlm_inference.py
         └── agent.py
 scripts/
 ├── evaluate_declaration.py
@@ -128,7 +129,8 @@ scripts/
 ## Tech Stack
 
 - **Orchestration**: LangGraph (multi-agent workflow)
-- **LLM**: HuggingFace transformers (Qwen2.5-7B-Instruct)
+- **LLM**: HuggingFace transformers (Qwen2.5-7B-Instruct) — tool calling + follow-up generation
+- **VLM**: HuggingFace transformers (Qwen2.5-VL-7B-Instruct) — photo coherence check
 - **Testing**: pytest
 
 ---
@@ -187,12 +189,15 @@ Kind regards.
 
 ### Agent Flow
 
-Pure rule-based validation — no LLM required. Receives `final_claim` from the Declaration Agent and runs two sequential checks:
+Receives `final_claim` from the Declaration Agent and runs three sequential checks:
 
-| Check | Description |
-|---|---|
-| **Conformity** | All 4 fields present, photos provided |
-| **Coverage** | Incident type covered by contract, declaration deadline respected |
+| Check | Method | Description |
+|---|---|---|
+| **Conformity** | Rule-based | All 4 fields present, photos provided |
+| **Coverage** | Rule-based | Incident type covered by contract, declaration deadline respected |
+| **Photo coherence** | VLM (Qwen2.5-VL) | Majority of attached photos match the declared incident type |
+
+Each check short-circuits on failure — coverage is not evaluated if conformity fails, photo check is skipped if coverage fails.
 
 Outputs a structured verdict:
 

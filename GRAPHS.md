@@ -32,14 +32,17 @@ flowchart TD
 
     check_conformity["check_conformity\nfields present? photos required?"]
     check_coverage["check_coverage\ntype covered? deadline respected?"]
+    check_photos["check_photos\nVLM coherence — majority rule"]
     finalize_val["finalize\nbuild verdict"]
 
     check_conformity -->|errors| finalize_val
     check_conformity -->|ok| check_coverage
-    check_coverage --> finalize_val
+    check_coverage -->|errors| finalize_val
+    check_coverage -->|ok| check_photos
+    check_photos --> finalize_val
     finalize_val --> END([End])
 ```
 
 **Input:** `final_claim` from Declaration Agent + `today_override` (optional)  
 **Output:** `verdict` — `{status, reason, coverage, claim}`  
-**Model:** none — pure rule-based
+**Model:** Qwen2.5-VL-7B-Instruct for photo coherence; rule-based for conformity/coverage
