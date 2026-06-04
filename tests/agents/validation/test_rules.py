@@ -165,3 +165,11 @@ def test_coverage_fire_returns_correct_rules():
     claim = {"date": "2026-06-03", "incident_type": "fire",
              "description": "Incendie.", "has_photos": True}
     assert check_coverage(claim, today=date(2026, 6, 4)) == []
+
+
+def test_coverage_passes_theft_exactly_at_deadline():
+    # Theft on 2026-06-02 (Mon), declared 2026-06-04 (Thu):
+    # June 2 (Mon) ✓, June 3 (Tue) ✓ = exactly 2 business days = 2 limit → approved
+    claim = {"date": "2026-06-02", "incident_type": "theft",
+             "description": "Cambriolage.", "has_photos": True}
+    assert check_coverage(claim, today=date(2026, 6, 4)) == []

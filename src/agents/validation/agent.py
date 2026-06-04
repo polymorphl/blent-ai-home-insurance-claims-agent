@@ -29,11 +29,11 @@ def finalize_node(state: ValidationState) -> dict:
             "coverage": None,
             "claim": claim,
         }}
-    rule = COVERAGE_RULES[claim["incident_type"]]
+    rule = COVERAGE_RULES.get(claim["incident_type"], {})
     return {"verdict": {
         "status": "approved",
         "reason": "Dossier validé.",
-        "coverage": {"ceiling": rule["ceiling"], "deductible": rule["deductible"]},
+        "coverage": {"ceiling": rule["ceiling"], "deductible": rule["deductible"]} if rule else None,
         "claim": claim,
     }}
 

@@ -51,3 +51,15 @@ def test_approved_water_damage_coverage(approved_claim):
     assert result["verdict"]["status"] == "approved"
     assert result["verdict"]["coverage"]["ceiling"] == 25000
     assert result["verdict"]["coverage"]["deductible"] == 150
+
+
+def test_rejected_unknown_incident_type():
+    claim = {
+        "date": "2026-06-03",
+        "incident_type": "earthquake",
+        "description": "Tremblement de terre.",
+        "has_photos": True,
+    }
+    result = _run(claim)
+    assert result["verdict"]["status"] == "rejected"
+    assert "contrat" in result["verdict"]["reason"].lower()
