@@ -20,3 +20,16 @@ def business_days_since(date_str: str, today: date | None = None) -> int:
             count += 1
         current += timedelta(days=1)
     return count
+
+
+_REQUIRED_CLAIM_FIELDS = ["date", "incident_type", "description", "has_photos"]
+
+
+def check_conformity(claim: dict) -> list[str]:
+    """Return a list with at most one conformity error (fail-fast)."""
+    for field in _REQUIRED_CLAIM_FIELDS:
+        if claim.get(field) is None:
+            return [f"Dossier incomplet : {field} manquant."]
+    if claim.get("has_photos") is False:
+        return [f"Des photos sont requises pour un sinistre de type {claim['incident_type']}."]
+    return []

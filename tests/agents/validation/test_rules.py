@@ -65,3 +65,53 @@ def test_business_days_defaults_to_today():
     # Should not raise and should return >= 0
     result = business_days_since("2026-06-01")
     assert result >= 0
+
+
+from src.agents.validation.rules import check_conformity
+
+
+def test_conformity_passes_complete_claim():
+    claim = {"date": "2025-09-10", "incident_type": "fire",
+             "description": "Incendie.", "has_photos": True}
+    assert check_conformity(claim) == []
+
+
+def test_conformity_fails_missing_date():
+    claim = {"date": None, "incident_type": "fire",
+             "description": "Incendie.", "has_photos": True}
+    errors = check_conformity(claim)
+    assert len(errors) == 1
+    assert "date" in errors[0]
+
+
+def test_conformity_fails_missing_description():
+    claim = {"date": "2025-09-10", "incident_type": "fire",
+             "description": None, "has_photos": True}
+    errors = check_conformity(claim)
+    assert len(errors) == 1
+    assert "description" in errors[0]
+
+
+def test_conformity_fails_missing_has_photos():
+    claim = {"date": "2025-09-10", "incident_type": "fire",
+             "description": "Incendie.", "has_photos": None}
+    errors = check_conformity(claim)
+    assert len(errors) == 1
+    assert "has_photos" in errors[0]
+
+
+def test_conformity_fails_photos_false():
+    claim = {"date": "2025-09-10", "incident_type": "theft",
+             "description": "Cambriolage.", "has_photos": False}
+    errors = check_conformity(claim)
+    assert len(errors) == 1
+    assert "photo" in errors[0].lower()
+    assert "theft" in errors[0]
+
+
+def test_conformity_fail_fast_returns_one_error():
+    # Two fields missing — should return only the first error
+    claim = {"date": None, "incident_type": None,
+             "description": None, "has_photos": None}
+    errors = check_conformity(claim)
+    assert len(errors) == 1
