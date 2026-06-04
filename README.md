@@ -62,7 +62,7 @@ cp .env.example .env
 # Add your HuggingFace token to .env
 ```
 
-Run 3 simulated examples:
+Run 6 simulated examples (Declaration → Validation pipeline):
 ```bash
 uv run python -m src.main
 ```
