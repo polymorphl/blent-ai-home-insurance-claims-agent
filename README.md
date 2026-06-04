@@ -2,29 +2,6 @@
 
 Multi-agent AI pipeline to automate home insurance claims processing for AssurHabitat.
 
-## Run
-
-Install dependencies:
-```bash
-uv sync
-```
-
-Set up environment variables:
-```bash
-cp .env.example .env
-# Add your HuggingFace token to .env
-```
-
-Run 3 simulated examples:
-```bash
-uv run python -m src.main
-```
-
-Run evaluation on golden dataset:
-```bash
-uv run python scripts/evaluate_declaration.py
-```
-
 ---
 
 ## Context
@@ -53,14 +30,52 @@ Out of all possible claim types, this project focuses on three:
 
 Agents are orchestrated via a multi-agent system or a purpose-built workflow.
 
+See [GRAPHS.md](GRAPHS.md) for Mermaid diagrams of each agent's internal flow.
+
 ---
 
 ## Constraints
 
-- **No third-party APIs** (OpenAI, Anthropic, etc.) — data must not leave the company's infrastructure
-- **Open-weight models only** — Mistral, Llama, or equivalent, run locally (applies to both LLMs and VLMs)
-- **No UI** — the pipeline runs asynchronously in the background per claim
-- **Agent handoff** — each agent must receive all information needed to execute the next step
+- **Data stays on-premise** — no calls to OpenAI, Anthropic, or any external API; all inference runs locally
+- **Open-weight models only** — currently Qwen2.5-7B-Instruct for text (tool calling + generation); a VLM will be required for the Expertise Agent (image analysis)
+- **GPU required for LLM agents** — Declaration Agent needs a CUDA/MPS-capable device; rule-based agents (Validation) run on CPU
+- **No UI** — the pipeline runs asynchronously in the background, one graph invocation per claim
+- **Structured handoff** — each agent outputs a typed dict consumed directly by the next; no free-text passing between agents
+
+---
+
+## Run
+
+Install `uv` if needed:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Install dependencies:
+```bash
+uv sync
+```
+
+Set up environment variables:
+```bash
+cp .env.example .env
+# Add your HuggingFace token to .env
+```
+
+Run 3 simulated examples:
+```bash
+uv run python -m src.main
+```
+
+Run Declaration Agent evaluation:
+```bash
+uv run python scripts/evaluate_declaration.py
+```
+
+Run Validation Agent evaluation:
+```bash
+uv run python scripts/evaluate_validation.py
+```
 
 ---
 
@@ -93,14 +108,19 @@ src/
 ├── main.py
 ├── examples.py
 └── agents/
-    └── declaration/
+    ├── declaration/
+    │   ├── state.py
+    │   ├── tools.py
+    │   ├── prompts.py
+    │   ├── inference.py
+    │   └── agent.py
+    └── validation/
         ├── state.py
-        ├── tools.py
-        ├── prompts.py
-        ├── inference.py
+        ├── rules.py
         └── agent.py
 scripts/
-└── evaluate_declaration.py
+├── evaluate_declaration.py
+└── evaluate_validation.py
 ```
 
 ## Tech Stack
@@ -156,3 +176,40 @@ Kind regards.
 [Attachment: Chambre_1.jpg]
 [Attachment: Chambre_2.jpg]
 ```
+
+---
+
+## Step 2 — Validation Agent
+
+**Goal**: Verify that the declared claim is covered by the policy and that all contractual obligations are met.
+
+### Agent Flow
+
+Pure rule-based validation — no LLM required. Receives `final_claim` from the Declaration Agent and runs two sequential checks:
+
+| Check | Description |
+|---|---|
+| **Conformity** | All 4 fields present, photos provided |
+| **Coverage** | Incident type covered by contract, declaration deadline respected |
+
+Outputs a structured verdict:
+
+```python
+{
+  "status": "approved" | "rejected",
+  "reason": str,        # French message for the policyholder if rejected
+  "coverage": {         # None if rejected
+    "ceiling": int,     # €
+    "deductible": int   # €
+  },
+  "claim": dict         # original final_claim
+}
+```
+
+### Coverage rules (from contract)
+
+| Incident type | Ceiling | Deductible | Declaration deadline |
+|---|---|---|---|
+| Water damage | 25 000 € | 150 € | 5 business days |
+| Fire / explosion | 100 000 € | 300 € | 5 business days |
+| Theft / vandalism | 20 000 € | 200 € | 2 business days |
