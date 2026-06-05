@@ -80,54 +80,66 @@ class UnifiedInference:
         if self._llm_model is not None:
             return
         if self._vlm_model is not None:
-            del self._vlm_model
-            del self._vlm_processor
             self._vlm_model = None
             self._vlm_processor = None
-            torch.cuda.empty_cache()
+            if DEVICE == "cuda":
+                torch.cuda.empty_cache()
         print(f"⌛ Loading LLM {LLM_MODEL_NAME}...")
-        self._llm_tokenizer = AutoTokenizer.from_pretrained(
-            LLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
-        )
-        load_kwargs = {
-            "dtype": getattr(torch, TORCH_DTYPE),
-            "token": HF_TOKEN,
-            "cache_dir": MODEL_CACHE_DIR,
-        }
-        if DEVICE == "cuda":
-            load_kwargs["device_map"] = "auto"
-        self._llm_model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME, **load_kwargs)
-        if DEVICE != "cuda":
-            self._llm_model = self._llm_model.to(DEVICE)
-        self._llm_model.eval()
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                LLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
+            )
+            load_kwargs = {
+                "dtype": getattr(torch, TORCH_DTYPE),
+                "token": HF_TOKEN,
+                "cache_dir": MODEL_CACHE_DIR,
+            }
+            if DEVICE == "cuda":
+                load_kwargs["device_map"] = "auto"
+            model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME, **load_kwargs)
+            if DEVICE != "cuda":
+                model = model.to(DEVICE)
+            model.eval()
+        except Exception:
+            self._llm_tokenizer = None
+            self._llm_model = None
+            raise
+        self._llm_tokenizer = tokenizer
+        self._llm_model = model
 
     def _ensure_vlm(self) -> None:
         """Load VLM into VRAM, unloading LLM first if necessary."""
         if self._vlm_model is not None:
             return
         if self._llm_model is not None:
-            del self._llm_model
-            del self._llm_tokenizer
             self._llm_model = None
             self._llm_tokenizer = None
-            torch.cuda.empty_cache()
+            if DEVICE == "cuda":
+                torch.cuda.empty_cache()
         print(f"⌛ Loading VLM {VLM_MODEL_NAME}...")
-        self._vlm_processor = AutoProcessor.from_pretrained(
-            VLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
-        )
-        load_kwargs = {
-            "dtype": getattr(torch, TORCH_DTYPE),
-            "token": HF_TOKEN,
-            "cache_dir": MODEL_CACHE_DIR,
-        }
-        if DEVICE == "cuda":
-            load_kwargs["device_map"] = "auto"
-        self._vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            VLM_MODEL_NAME, **load_kwargs
-        )
-        if DEVICE != "cuda":
-            self._vlm_model = self._vlm_model.to(DEVICE)
-        self._vlm_model.eval()
+        try:
+            processor = AutoProcessor.from_pretrained(
+                VLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
+            )
+            load_kwargs = {
+                "dtype": getattr(torch, TORCH_DTYPE),
+                "token": HF_TOKEN,
+                "cache_dir": MODEL_CACHE_DIR,
+            }
+            if DEVICE == "cuda":
+                load_kwargs["device_map"] = "auto"
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                VLM_MODEL_NAME, **load_kwargs
+            )
+            if DEVICE != "cuda":
+                model = model.to(DEVICE)
+            model.eval()
+        except Exception:
+            self._vlm_processor = None
+            self._vlm_model = None
+            raise
+        self._vlm_processor = processor
+        self._vlm_model = model
 
     def _tokenize_text(self, messages: list[dict], tools: list | None = None) -> dict:
         """Render chat template for text-only input using LLM tokenizer."""
