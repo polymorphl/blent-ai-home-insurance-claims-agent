@@ -222,6 +222,7 @@ class UnifiedInference:
 
     def _infer_vision(self, image_path: str, prompt: str) -> str:
         """Run VLM inference on image + text prompt, return decoded lowercase response."""
+        self._ensure_vlm()
         image = Image.open(image_path).convert("RGB")
         messages = [{"role": "user", "content": [
             {"type": "image"},
@@ -251,7 +252,6 @@ class UnifiedInference:
         prompt = COHERENCE_PROMPTS.get(incident_type)
         if not prompt:
             return True
-        self._ensure_vlm()
         return self._infer_vision(image_path, prompt).startswith("yes")
 
     def assess_damage_severity(self, image_path: str, incident_type: str) -> str:
@@ -265,7 +265,6 @@ class UnifiedInference:
         prompt = SEVERITY_PROMPTS.get(incident_type)
         if not prompt:
             return "unknown"
-        self._ensure_vlm()
         response = self._infer_vision(image_path, prompt)
         for level in ("low", "medium", "high"):
             if level in response:
