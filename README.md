@@ -62,7 +62,7 @@ cp .env.example .env
 # Add your HuggingFace token to .env
 ```
 
-Run 6 simulated examples (Declaration → Validation pipeline):
+Run 6 simulated examples (Declaration → Validation → Expertise pipeline):
 ```bash
 uv run python -m src.main
 ```
@@ -116,10 +116,15 @@ src/
     │   ├── prompts.py
     │   ├── inference.py
     │   └── agent.py
-    └── validation/
+    ├── validation/
+    │   ├── state.py
+    │   ├── rules.py
+    │   ├── vlm_inference.py
+    │   └── agent.py
+    └── expertise/
         ├── state.py
         ├── rules.py
-        ├── vlm_inference.py
+        ├── prompts.py
         └── agent.py
 scripts/
 ├── evaluate_declaration.py
@@ -220,3 +225,44 @@ Outputs a structured verdict:
 | Water damage | 25 000 € | 150 € | 5 business days |
 | Fire / explosion | 100 000 € | 300 € | 5 business days |
 | Theft / vandalism | 20 000 € | 200 € | 2 business days |
+
+---
+
+## Step 3 — Expertise Agent
+
+**Goal**: Produce a structured cost estimate and advisor report for each approved claim.
+
+### Agent Flow
+
+Receives the `verdict` from the Validation Agent (status `approved`) and runs four sequential steps:
+
+| Step | Method | Description |
+|---|---|---|
+| **assess_severity** | VLM (Qwen2.5-VL) | Majority vote across photos → severity `low / medium / high` |
+| **estimate_costs** | Rule-based | Lookup table `{incident_type × severity}` → cost range; apply deductible + ceiling |
+| **generate_report** | LLM (Qwen2.5-7B) | Generates French narrative summary for the insurance advisor |
+| **finalize** | — | Assembles the `ExpertiseReport` dict |
+
+No final decision is issued to the policyholder. The agent always delegates to an advisor.
+
+Outputs a structured report:
+
+```python
+{
+  "severity": "low" | "medium" | "high" | "unknown",
+  "cost_range": (int, int),          # estimated damage in €
+  "compensable_amount": (int, int),  # after deductible and ceiling
+  "deductible_applied": int,
+  "ceiling_applied": int,
+  "summary": str,                    # LLM-generated narrative for advisor
+  "claim": dict                      # original claim passthrough
+}
+```
+
+### Cost estimation rules (indicative — to be validated by domain experts)
+
+| Incident type | Low | Medium | High |
+|---|---|---|---|
+| Water damage | 200€ – 1 500€ | 1 500€ – 8 000€ | 8 000€ – 20 000€ |
+| Fire / explosion | 1 000€ – 10 000€ | 10 000€ – 40 000€ | 40 000€ – 90 000€ |
+| Theft / vandalism | 200€ – 2 000€ | 2 000€ – 8 000€ | 8 000€ – 18 000€ |

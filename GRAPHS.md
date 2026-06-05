@@ -46,3 +46,26 @@ flowchart TD
 **Input:** `final_claim` from Declaration Agent + `today_override` (optional)  
 **Output:** `verdict` — `{status, reason, coverage, claim}`  
 **Model:** Qwen2.5-VL-7B-Instruct for photo coherence; rule-based for conformity/coverage
+
+---
+
+## Expertise Agent
+
+```mermaid
+flowchart TD
+    START([Start]) --> assess_severity
+
+    assess_severity["assess_severity\nVLM per photo → majority rule → severity"]
+    estimate_costs["estimate_costs\nlookup table + deductible + ceiling"]
+    generate_report["generate_report\nLLM → narrative summary"]
+    finalize_exp["finalize\nassemble ExpertiseReport"]
+
+    assess_severity --> estimate_costs
+    estimate_costs --> generate_report
+    generate_report --> finalize_exp
+    finalize_exp --> END([End])
+```
+
+**Input:** `verdict` from Validation Agent — `{status, coverage {ceiling, deductible}, claim}`
+**Output:** `report` — `{severity, cost_range, compensable_amount, deductible_applied, ceiling_applied, summary, claim}`
+**Models:** Qwen2.5-VL-7B-Instruct (severity assessment — reused); Qwen2.5-7B-Instruct (summary generation — reused)
