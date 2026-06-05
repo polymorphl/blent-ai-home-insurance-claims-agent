@@ -4,6 +4,7 @@ from src.agents.declaration.agent import build_graph as build_declaration_graph
 from src.agents.declaration.inference import HFInference
 from src.agents.validation.agent import build_graph as build_validation_graph
 from src.agents.validation.vlm_inference import VLMInference
+from src.agents.expertise.agent import build_graph as build_expertise_graph
 from src.examples import EXAMPLES
 
 
@@ -68,17 +69,41 @@ def run_validation(app, final_claim: dict) -> dict:
     return verdict
 
 
+def run_expertise(app, verdict: dict) -> dict:
+    """Run the Expertise Agent on an approved verdict and print the report."""
+    print("\n--- Expertise ---")
+    result = app.invoke({
+        "verdict": verdict,
+        "severity": None,
+        "cost_range": None,
+        "compensable_amount": None,
+        "deductible_applied": None,
+        "ceiling_applied": None,
+        "summary": None,
+        "report": None,
+    })
+    report = result["report"]
+    print(f"  Severity:    {report['severity']}")
+    print(f"  Cost range:  {report['cost_range'][0]}€ – {report['cost_range'][1]}€")
+    print(f"  Compensable: {report['compensable_amount'][0]}€ – {report['compensable_amount'][1]}€")
+    print(f"  Summary:     {report['summary']}")
+    return report
+
+
 def main():
-    """Load models and run the full pipeline (Declaration → Validation) on all examples."""
+    """Load models and run the full pipeline (Declaration → Validation → Expertise) on all examples."""
     inference = HFInference()
     vlm = VLMInference()
     declaration_app = build_declaration_graph(inference)
     validation_app = build_validation_graph(vlm_inference=vlm)
+    expertise_app = build_expertise_graph(vlm_inference=vlm, inference=inference)
 
     for example in EXAMPLES:
         final_claim = run_declaration(declaration_app, example)
         if final_claim:
-            run_validation(validation_app, final_claim)
+            verdict = run_validation(validation_app, final_claim)
+            if verdict["status"] == "approved":
+                run_expertise(expertise_app, verdict)
 
 
 if __name__ == "__main__":
