@@ -79,7 +79,7 @@ class UnifiedInference:
         if tools is not None:
             kwargs["tools"] = tools
         text = self.processor.apply_chat_template(messages, **kwargs)
-        return self.processor(text=[text], return_tensors="pt")
+        return self.processor(text=[text], return_tensors="pt", return_attention_mask=True)
 
     def _parse_tool_call(self, output_text: str) -> dict:
         """Extract and parse the tool call JSON from model output.
