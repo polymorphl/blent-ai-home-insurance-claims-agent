@@ -16,22 +16,22 @@ def test_severity_prompts_request_single_word():
 
 def _make_vlm_with_mock_output(decoded_response: str):
     vlm = VLMInference.__new__(VLMInference)
-    vlm.processor = MagicMock()
-    vlm.model = MagicMock()
-    vlm.model.device = "cpu"
+    vlm._vlm_processor = MagicMock()
+    vlm._vlm_model = MagicMock()
+    vlm._vlm_model.device = "cpu"
 
     mock_output = MagicMock()
     mock_output.__getitem__ = MagicMock(return_value=MagicMock())
-    vlm.model.generate.return_value = mock_output
+    vlm._vlm_model.generate.return_value = mock_output
 
-    vlm.processor.apply_chat_template.return_value = "prompt text"
-    vlm.processor.tokenizer.eos_token_id = 0
+    vlm._vlm_processor.apply_chat_template.return_value = "prompt text"
+    vlm._vlm_processor.tokenizer.eos_token_id = 0
 
     mock_inputs = {"input_ids": MagicMock()}
     mock_inputs["input_ids"].shape = [1, 10]
-    vlm.processor.return_value = mock_inputs
+    vlm._vlm_processor.return_value = mock_inputs
 
-    vlm.processor.tokenizer.decode.return_value = decoded_response
+    vlm._vlm_processor.tokenizer.decode.return_value = decoded_response
     return vlm
 
 
@@ -79,8 +79,8 @@ def test_assess_damage_severity_unknown_incident_type_returns_unknown(tmp_path):
     fake_image = tmp_path / "test.jpg"
     fake_image.write_bytes(b"fake")
     vlm = VLMInference.__new__(VLMInference)
-    vlm.processor = MagicMock()
-    vlm.model = MagicMock()
+    vlm._vlm_processor = MagicMock()
+    vlm._vlm_model = MagicMock()
     with patch("src.inference.Image"):
         result = vlm.assess_damage_severity(str(fake_image), "earthquake")
     assert result == "unknown"
