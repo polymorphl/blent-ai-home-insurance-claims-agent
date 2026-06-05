@@ -1,11 +1,10 @@
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.agents.declaration.agent import build_graph as build_declaration_graph
-from src.agents.declaration.inference import HFInference
 from src.agents.validation.agent import build_graph as build_validation_graph
-from src.agents.validation.vlm_inference import VLMInference
 from src.agents.expertise.agent import build_graph as build_expertise_graph
 from src.examples import EXAMPLES
+from src.inference import UnifiedInference
 
 
 def run_declaration(app, example: dict) -> dict | None:
@@ -92,11 +91,10 @@ def run_expertise(app, verdict: dict) -> dict:
 
 def main():
     """Load models and run the full pipeline (Declaration → Validation → Expertise) on all examples."""
-    inference = HFInference()
-    vlm = VLMInference()
-    declaration_app = build_declaration_graph(inference)
-    validation_app = build_validation_graph(vlm_inference=vlm)
-    expertise_app = build_expertise_graph(vlm_inference=vlm, inference=inference)
+    model = UnifiedInference()
+    declaration_app = build_declaration_graph(model)
+    validation_app = build_validation_graph(vlm_inference=model)
+    expertise_app = build_expertise_graph(vlm_inference=model, inference=model)
 
     for example in EXAMPLES:
         final_claim = run_declaration(declaration_app, example)
