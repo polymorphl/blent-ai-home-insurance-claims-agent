@@ -3,10 +3,24 @@ import re
 
 import torch
 from PIL import Image
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from transformers import (
+    AutoModelForCausalLM,
+    AutoProcessor,
+    AutoTokenizer,
+    Qwen2_5_VLForConditionalGeneration,
+)
 
 from src.agents.declaration.tools import EXTRACT_TOOL_SCHEMA
-from src.config import DEVICE, HF_TOKEN, MAX_NEW_TOKENS, MODEL_CACHE_DIR, MODEL_NAME, TEMPERATURE, TORCH_DTYPE
+from src.config import (
+    DEVICE,
+    HF_TOKEN,
+    LLM_MODEL_NAME,
+    MAX_NEW_TOKENS,
+    MODEL_CACHE_DIR,
+    TEMPERATURE,
+    TORCH_DTYPE,
+    VLM_MODEL_NAME,
+)
 
 COHERENCE_PROMPTS: dict[str, str] = {
     "water_damage": (
@@ -51,13 +65,29 @@ SEVERITY_PROMPTS: dict[str, str] = {
 
 
 class UnifiedInference:
-    """Single model wrapper for Qwen2.5-VL-7B-Instruct covering all pipeline agents."""
+    """Inference wrapper with on-demand model swapping: LLM for text, VLM for vision."""
 
     def __init__(self):
-        """Load processor and model, printing progress to stdout."""
-        print(f"⌛ Loading model {MODEL_NAME}...")
-        self.processor = AutoProcessor.from_pretrained(
-            MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
+        """Initialize state and pre-load LLM (Declaration always runs first)."""
+        self._llm_model = None
+        self._llm_tokenizer = None
+        self._vlm_model = None
+        self._vlm_processor = None
+        self._ensure_llm()
+
+    def _ensure_llm(self) -> None:
+        """Load LLM into VRAM, unloading VLM first if necessary."""
+        if self._llm_model is not None:
+            return
+        if self._vlm_model is not None:
+            del self._vlm_model
+            del self._vlm_processor
+            self._vlm_model = None
+            self._vlm_processor = None
+            torch.cuda.empty_cache()
+        print(f"⌛ Loading LLM {LLM_MODEL_NAME}...")
+        self._llm_tokenizer = AutoTokenizer.from_pretrained(
+            LLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
         )
         load_kwargs = {
             "dtype": getattr(torch, TORCH_DTYPE),
@@ -66,20 +96,46 @@ class UnifiedInference:
         }
         if DEVICE == "cuda":
             load_kwargs["device_map"] = "auto"
-        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            MODEL_NAME, **load_kwargs
+        self._llm_model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME, **load_kwargs)
+        if DEVICE != "cuda":
+            self._llm_model = self._llm_model.to(DEVICE)
+        self._llm_model.eval()
+
+    def _ensure_vlm(self) -> None:
+        """Load VLM into VRAM, unloading LLM first if necessary."""
+        if self._vlm_model is not None:
+            return
+        if self._llm_model is not None:
+            del self._llm_model
+            del self._llm_tokenizer
+            self._llm_model = None
+            self._llm_tokenizer = None
+            torch.cuda.empty_cache()
+        print(f"⌛ Loading VLM {VLM_MODEL_NAME}...")
+        self._vlm_processor = AutoProcessor.from_pretrained(
+            VLM_MODEL_NAME, token=HF_TOKEN, cache_dir=MODEL_CACHE_DIR
+        )
+        load_kwargs = {
+            "dtype": getattr(torch, TORCH_DTYPE),
+            "token": HF_TOKEN,
+            "cache_dir": MODEL_CACHE_DIR,
+        }
+        if DEVICE == "cuda":
+            load_kwargs["device_map"] = "auto"
+        self._vlm_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            VLM_MODEL_NAME, **load_kwargs
         )
         if DEVICE != "cuda":
-            self.model = self.model.to(DEVICE)
-        self.model.eval()
+            self._vlm_model = self._vlm_model.to(DEVICE)
+        self._vlm_model.eval()
 
     def _tokenize_text(self, messages: list[dict], tools: list | None = None) -> dict:
-        """Render chat template for text-only input (no images) and return processor output."""
+        """Render chat template for text-only input using LLM tokenizer."""
         kwargs: dict = {"tokenize": False, "add_generation_prompt": True}
         if tools is not None:
             kwargs["tools"] = tools
-        text = self.processor.apply_chat_template(messages, **kwargs)
-        return self.processor(text=[text], return_tensors="pt", return_attention_mask=True)
+        text = self._llm_tokenizer.apply_chat_template(messages, **kwargs)
+        return self._llm_tokenizer(text, return_tensors="pt", return_attention_mask=True)
 
     def _parse_tool_call(self, output_text: str) -> dict:
         """Extract and parse the tool call JSON from model output.
@@ -113,42 +169,44 @@ class UnifiedInference:
 
     def extract(self, messages: list[dict]) -> dict:
         """Extract claim fields from conversation messages using tool calling."""
+        self._ensure_llm()
         encoding = self._tokenize_text(messages, tools=[EXTRACT_TOOL_SCHEMA])
-        input_ids = encoding["input_ids"].to(self.model.device)
-        attention_mask = encoding["attention_mask"].to(self.model.device)
+        input_ids = encoding["input_ids"].to(self._llm_model.device)
+        attention_mask = encoding["attention_mask"].to(self._llm_model.device)
 
         with torch.no_grad():
-            output_ids = self.model.generate(
+            output_ids = self._llm_model.generate(
                 input_ids,
                 attention_mask=attention_mask,
                 max_new_tokens=MAX_NEW_TOKENS,
                 temperature=TEMPERATURE,
                 do_sample=TEMPERATURE > 0,
-                pad_token_id=self.processor.tokenizer.eos_token_id,
+                pad_token_id=self._llm_tokenizer.eos_token_id,
             )
 
         new_tokens = output_ids[0][input_ids.shape[-1]:]
-        output_text = self.processor.tokenizer.decode(new_tokens, skip_special_tokens=False)
+        output_text = self._llm_tokenizer.decode(new_tokens, skip_special_tokens=False)
         return self._parse_tool_call(output_text)
 
     def generate(self, messages: list[dict]) -> str:
         """Generate a text response without tool calling."""
+        self._ensure_llm()
         encoding = self._tokenize_text(messages)
-        input_ids = encoding["input_ids"].to(self.model.device)
-        attention_mask = encoding["attention_mask"].to(self.model.device)
+        input_ids = encoding["input_ids"].to(self._llm_model.device)
+        attention_mask = encoding["attention_mask"].to(self._llm_model.device)
 
         with torch.no_grad():
-            output_ids = self.model.generate(
+            output_ids = self._llm_model.generate(
                 input_ids,
                 attention_mask=attention_mask,
                 max_new_tokens=MAX_NEW_TOKENS,
                 temperature=TEMPERATURE,
                 do_sample=TEMPERATURE > 0,
-                pad_token_id=self.processor.tokenizer.eos_token_id,
+                pad_token_id=self._llm_tokenizer.eos_token_id,
             )
 
         new_tokens = output_ids[0][input_ids.shape[-1]:]
-        return self.processor.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        return self._llm_tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
     def _infer_vision(self, image_path: str, prompt: str) -> str:
         """Run VLM inference on image + text prompt, return decoded lowercase response."""
@@ -157,22 +215,22 @@ class UnifiedInference:
             {"type": "image"},
             {"type": "text", "text": prompt},
         ]}]
-        text = self.processor.apply_chat_template(
+        text = self._vlm_processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        inputs = self.processor(text=[text], images=[image], return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        inputs = self._vlm_processor(text=[text], images=[image], return_tensors="pt")
+        inputs = {k: v.to(self._vlm_model.device) for k, v in inputs.items()}
 
         with torch.no_grad():
-            output_ids = self.model.generate(
+            output_ids = self._vlm_model.generate(
                 **inputs,
                 max_new_tokens=5,
                 do_sample=False,
-                pad_token_id=self.processor.tokenizer.eos_token_id,
+                pad_token_id=self._vlm_processor.tokenizer.eos_token_id,
             )
 
         new_tokens = output_ids[0][inputs["input_ids"].shape[-1]:]
-        return self.processor.tokenizer.decode(
+        return self._vlm_processor.tokenizer.decode(
             new_tokens, skip_special_tokens=True
         ).strip().lower()
 
@@ -181,6 +239,7 @@ class UnifiedInference:
         prompt = COHERENCE_PROMPTS.get(incident_type)
         if not prompt:
             return True
+        self._ensure_vlm()
         return self._infer_vision(image_path, prompt).startswith("yes")
 
     def assess_damage_severity(self, image_path: str, incident_type: str) -> str:
@@ -194,6 +253,7 @@ class UnifiedInference:
         prompt = SEVERITY_PROMPTS.get(incident_type)
         if not prompt:
             return "unknown"
+        self._ensure_vlm()
         response = self._infer_vision(image_path, prompt)
         for level in ("low", "medium", "high"):
             if level in response:

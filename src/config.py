@@ -18,7 +18,8 @@ def _detect_dtype(device: str) -> str:
     return "float32" if device == "cpu" else "bfloat16"
 
 
-MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
+LLM_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+VLM_MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
 DEVICE = os.getenv("DEVICE", _detect_device())
 TORCH_DTYPE = os.getenv("TORCH_DTYPE", _detect_dtype(DEVICE))
 MAX_NEW_TOKENS = 512
