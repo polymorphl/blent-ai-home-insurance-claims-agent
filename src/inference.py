@@ -95,7 +95,7 @@ class UnifiedInference:
                 "cache_dir": MODEL_CACHE_DIR,
             }
             if DEVICE == "cuda":
-                load_kwargs["device_map"] = "auto"
+                load_kwargs["device_map"] = {"": 0}
             model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME, **load_kwargs)
             if DEVICE != "cuda":
                 model = model.to(DEVICE)
@@ -127,7 +127,7 @@ class UnifiedInference:
                 "cache_dir": MODEL_CACHE_DIR,
             }
             if DEVICE == "cuda":
-                load_kwargs["device_map"] = "auto"
+                load_kwargs["device_map"] = {"": 0}
             model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 VLM_MODEL_NAME, **load_kwargs
             )
