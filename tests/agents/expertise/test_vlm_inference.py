@@ -39,7 +39,7 @@ def test_assess_damage_severity_returns_low(tmp_path):
     fake_image = tmp_path / "test.jpg"
     fake_image.write_bytes(b"fake")
     vlm = _make_vlm_with_mock_output("low")
-    with patch("src.agents.validation.vlm_inference.Image") as mock_image:
+    with patch("src.inference.Image") as mock_image:
         mock_image.open.return_value.convert.return_value = MagicMock()
         result = vlm.assess_damage_severity(str(fake_image), "water_damage")
     assert result == "low"
@@ -49,7 +49,7 @@ def test_assess_damage_severity_returns_medium(tmp_path):
     fake_image = tmp_path / "test.jpg"
     fake_image.write_bytes(b"fake")
     vlm = _make_vlm_with_mock_output("medium")
-    with patch("src.agents.validation.vlm_inference.Image") as mock_image:
+    with patch("src.inference.Image") as mock_image:
         mock_image.open.return_value.convert.return_value = MagicMock()
         result = vlm.assess_damage_severity(str(fake_image), "fire")
     assert result == "medium"
@@ -59,7 +59,7 @@ def test_assess_damage_severity_returns_high(tmp_path):
     fake_image = tmp_path / "test.jpg"
     fake_image.write_bytes(b"fake")
     vlm = _make_vlm_with_mock_output("high")
-    with patch("src.agents.validation.vlm_inference.Image") as mock_image:
+    with patch("src.inference.Image") as mock_image:
         mock_image.open.return_value.convert.return_value = MagicMock()
         result = vlm.assess_damage_severity(str(fake_image), "theft")
     assert result == "high"
@@ -69,7 +69,7 @@ def test_assess_damage_severity_defaults_to_medium_on_unrecognized(tmp_path):
     fake_image = tmp_path / "test.jpg"
     fake_image.write_bytes(b"fake")
     vlm = _make_vlm_with_mock_output("severe")
-    with patch("src.agents.validation.vlm_inference.Image") as mock_image:
+    with patch("src.inference.Image") as mock_image:
         mock_image.open.return_value.convert.return_value = MagicMock()
         result = vlm.assess_damage_severity(str(fake_image), "water_damage")
     assert result == "medium"
@@ -81,6 +81,6 @@ def test_assess_damage_severity_unknown_incident_type_returns_unknown(tmp_path):
     vlm = VLMInference.__new__(VLMInference)
     vlm.processor = MagicMock()
     vlm.model = MagicMock()
-    with patch("src.agents.validation.vlm_inference.Image"):
+    with patch("src.inference.Image"):
         result = vlm.assess_damage_severity(str(fake_image), "earthquake")
     assert result == "unknown"

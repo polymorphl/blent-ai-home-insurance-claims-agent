@@ -37,7 +37,7 @@ def test_check_photo_coherence_returns_bool(tmp_path):
 
     vlm.processor.tokenizer.decode.return_value = "yes"
 
-    with patch("src.agents.validation.vlm_inference.Image") as mock_image:
+    with patch("src.inference.Image") as mock_image:
         mock_image.open.return_value.convert.return_value = MagicMock()
         result = vlm.check_photo_coherence(str(fake_image), "water_damage")
 
@@ -52,7 +52,7 @@ def test_unknown_incident_type_returns_true(tmp_path):
     vlm.processor = MagicMock()
     vlm.model = MagicMock()
 
-    with patch("src.agents.validation.vlm_inference.Image"):
+    with patch("src.inference.Image"):
         result = vlm.check_photo_coherence(str(fake_image), "earthquake")
 
     assert result is True
