@@ -110,6 +110,16 @@ def test_inference_called_with_messages(approved_verdict):
     assert result["report"]["summary"] == "Résumé généré."
 
 
+def test_vlm_tie_picks_higher_severity(approved_verdict, tmp_path):
+    for name in ["a.jpg", "b.jpg"]:
+        (tmp_path / name).write_bytes(b"fake")
+    approved_verdict["claim"]["photo_filenames"] = ["a.jpg", "b.jpg"]
+    mock_vlm = MagicMock()
+    mock_vlm.assess_damage_severity.side_effect = ["low", "high"]  # tie → high wins
+    result = _run(approved_verdict, vlm_inference=mock_vlm, attachments_dir=tmp_path)
+    assert result["report"]["severity"] == "high"
+
+
 def test_rejected_verdict_does_not_crash(tmp_path):
     rejected_verdict = {
         "status": "rejected",

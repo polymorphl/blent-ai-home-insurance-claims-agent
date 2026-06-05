@@ -102,7 +102,13 @@ class VLMInference:
         return response.startswith("yes")
 
     def assess_damage_severity(self, image_path: str, incident_type: str) -> str:
-        """Return damage severity: 'low', 'medium', or 'high'. Returns 'unknown' if no prompt."""
+        """Return damage severity: 'low', 'medium', or 'high'.
+
+        Returns 'unknown' if incident_type has no matching prompt (no model call).
+        Returns 'medium' if the VLM response does not contain low/medium/high — biases
+        toward mid-range rather than flagging degradation, so cost estimates remain
+        financially material even on garbled output.
+        """
         prompt = SEVERITY_PROMPTS.get(incident_type)
         if not prompt:
             return "unknown"

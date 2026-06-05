@@ -32,7 +32,11 @@ def make_assess_severity_node(vlm_inference, attachments_dir: Path):
             return {"severity": "unknown"}
 
         counts = Counter(results)
-        return {"severity": counts.most_common(1)[0][0]}
+        max_count = counts.most_common(1)[0][1]
+        tied = [s for s, c in counts.items() if c == max_count]
+        severity_order = ["low", "medium", "high"]
+        winner = max(tied, key=lambda s: severity_order.index(s) if s in severity_order else -1)
+        return {"severity": winner}
 
     return assess_severity_node
 
