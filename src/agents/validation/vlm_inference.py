@@ -29,6 +29,24 @@ COHERENCE_PROMPTS: dict[str, str] = {
     ),
 }
 
+SEVERITY_PROMPTS: dict[str, str] = {
+    "water_damage": (
+        "Assess the severity of water damage visible in this image. "
+        "Consider the extent of wet surfaces, stains, flooding, or structural damage. "
+        "Respond with exactly one word: low, medium, or high."
+    ),
+    "fire": (
+        "Assess the severity of fire damage visible in this image. "
+        "Consider the extent of burns, charring, smoke damage, or structural destruction. "
+        "Respond with exactly one word: low, medium, or high."
+    ),
+    "theft": (
+        "Assess the severity of theft or burglary damage visible in this image. "
+        "Consider forced entry marks, ransacking, broken locks, or property destruction. "
+        "Respond with exactly one word: low, medium, or high."
+    ),
+}
+
 
 class VLMInference:
     """Wrapper for Qwen2.5-VL image-text inference."""
@@ -82,3 +100,38 @@ class VLMInference:
             new_tokens, skip_special_tokens=True
         ).strip().lower()
         return response.startswith("yes")
+
+    def assess_damage_severity(self, image_path: str, incident_type: str) -> str:
+        """Return damage severity: 'low', 'medium', or 'high'. Returns 'unknown' if no prompt."""
+        prompt = SEVERITY_PROMPTS.get(incident_type)
+        if not prompt:
+            return "unknown"
+
+        image = Image.open(image_path).convert("RGB")
+        messages = [{"role": "user", "content": [
+            {"type": "image"},
+            {"type": "text", "text": prompt},
+        ]}]
+        text = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = self.processor(text=[text], images=[image], return_tensors="pt")
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=5,
+                do_sample=False,
+                pad_token_id=self.processor.tokenizer.eos_token_id,
+            )
+
+        new_tokens = output_ids[0][inputs["input_ids"].shape[-1]:]
+        response = self.processor.tokenizer.decode(
+            new_tokens, skip_special_tokens=True
+        ).strip().lower()
+
+        for level in ("low", "medium", "high"):
+            if level in response:
+                return level
+        return "medium"
