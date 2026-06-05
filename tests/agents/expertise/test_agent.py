@@ -108,3 +108,21 @@ def test_inference_called_with_messages(approved_verdict):
     result = _run(approved_verdict, inference=mock_llm)
     mock_llm.generate.assert_called_once()
     assert result["report"]["summary"] == "Résumé généré."
+
+
+def test_rejected_verdict_does_not_crash(tmp_path):
+    rejected_verdict = {
+        "status": "rejected",
+        "reason": "Délai dépassé.",
+        "coverage": None,
+        "claim": {
+            "date": "2026-05-01",
+            "incident_type": "water_damage",
+            "description": "Fuite.",
+            "has_photos": True,
+            "photo_filenames": [],
+        },
+    }
+    result = _run(rejected_verdict)
+    assert result["report"]["cost_range"] == (0, 0)
+    assert result["report"]["compensable_amount"] == (0, 0)

@@ -9,7 +9,9 @@ from src.agents.expertise.state import ExpertiseState
 
 
 def make_assess_severity_node(vlm_inference, attachments_dir: Path):
+    """Factory for the damage severity assessment node."""
     def assess_severity_node(state: ExpertiseState) -> dict:
+        """Assess damage severity from attached photos using VLM (majority rule)."""
         claim = state["verdict"]["claim"]
         photo_filenames = claim.get("photo_filenames", [])
 
@@ -36,8 +38,12 @@ def make_assess_severity_node(vlm_inference, attachments_dir: Path):
 
 
 def estimate_costs_node(state: ExpertiseState) -> dict:
+    """Estimate costs based on coverage and severity."""
     verdict = state["verdict"]
-    coverage = verdict["coverage"]
+    coverage = verdict.get("coverage")
+    if coverage is None:
+        return {"cost_range": (0, 0), "compensable_amount": (0, 0),
+                "deductible_applied": 0, "ceiling_applied": 0}
     claim = verdict["claim"]
     return estimate_costs(
         incident_type=claim["incident_type"],
@@ -48,7 +54,9 @@ def estimate_costs_node(state: ExpertiseState) -> dict:
 
 
 def make_generate_report_node(inference):
+    """Factory for the report generation node."""
     def generate_report_node(state: ExpertiseState) -> dict:
+        """Generate expertise summary using LLM inference."""
         if inference is None:
             return {"summary": "Rapport d'expertise non disponible (modèle absent)."}
 
@@ -75,6 +83,7 @@ def make_generate_report_node(inference):
 
 
 def finalize_node(state: ExpertiseState) -> dict:
+    """Build the final expertise report from accumulated analysis."""
     return {"report": {
         "severity": state.get("severity") or "unknown",
         "cost_range": state.get("cost_range") or (0, 0),
@@ -87,6 +96,7 @@ def finalize_node(state: ExpertiseState) -> dict:
 
 
 def build_graph(vlm_inference=None, inference=None, attachments_dir: Path | None = None):
+    """Build the expertise workflow graph."""
     if attachments_dir is None:
         attachments_dir = Path("data/attachments")
 
