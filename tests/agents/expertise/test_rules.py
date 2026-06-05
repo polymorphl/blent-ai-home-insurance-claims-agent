@@ -76,3 +76,19 @@ def test_estimate_costs_preserves_deductible_and_ceiling():
     result = estimate_costs("water_damage", "unknown", ceiling=25000, deductible=150)
     assert result["deductible_applied"] == 150
     assert result["ceiling_applied"] == 25000
+
+from src.agents.expertise.prompts import EXPERTISE_SUMMARY_PROMPT
+
+def test_expertise_summary_prompt_has_required_placeholders():
+    required = [
+        "{incident_type}", "{description}", "{date}", "{severity}",
+        "{cost_low}", "{cost_high}", "{comp_low}", "{comp_high}",
+        "{deductible}", "{ceiling}",
+    ]
+    for placeholder in required:
+        assert placeholder in EXPERTISE_SUMMARY_PROMPT, \
+            f"Missing placeholder: {placeholder}"
+
+def test_expertise_summary_prompt_delegates_to_advisor():
+    lower = EXPERTISE_SUMMARY_PROMPT.lower()
+    assert "conseiller" in lower
