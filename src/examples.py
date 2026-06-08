@@ -11,7 +11,6 @@ _today = date.today()
 _yesterday = _fmt(_today - timedelta(days=1))
 _2d_ago = _fmt(_today - timedelta(days=2))
 _3d_ago = _fmt(_today - timedelta(days=3))
-_10d_ago = _fmt(_today - timedelta(days=10))
 _30d_ago = _fmt(_today - timedelta(days=30))
 
 
@@ -28,6 +27,14 @@ EXAMPLES = [
             ),
             f"La fuite a été constatée le {_yesterday}.",
         ],
+        "human_responses": {
+            "plombier": "Devis plomberie estimé à 1 800€ (réfection mur + peinture).",
+            "conseiller": {
+                "approved": True,
+                "final_amount": [1350, 7850],
+                "advisor_note": "Indemnisation accordée, sous réserve de facture.",
+            },
+        },
     },
     {
         "id": "ex2_fire_approved",
