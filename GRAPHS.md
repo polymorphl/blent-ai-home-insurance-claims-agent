@@ -1,5 +1,29 @@
 # Agent Graphs
 
+## Orchestrator (pipeline)
+
+```mermaid
+flowchart TD
+    START([Start]) --> declaration
+    declaration["declaration\n(drive sub-graph over turns)"] --> validation
+    validation{"validation\nverdict?"}
+    validation -->|rejected| finalize_rejected
+    validation -->|approved| expertise
+    expertise["expertise\n(severity + cost report)"] --> quote_gate
+    quote_gate["quote_gate\nplombier / expert / serrurier (human)"] --> expert_gate
+    expert_gate["expert_gate\nexpert if severity=high (human)"] --> advisor_gate
+    advisor_gate["advisor_gate\nconseiller final decision (human)"] --> END([End])
+    finalize_rejected["finalize_rejected\ndecision = rejected"] --> END
+```
+
+**Input:** `{example, today_override, human_responses}`
+**Output:** `decision` — `{approved, final_amount, advisor_note, quotes}`
+**Human gates:** each gate injects a pre-seeded `human_responses[key]` if present, else
+`interrupt()`s for live console input (resumed via `Command(resume=...)`). Keys:
+`plombier`, `expert`, `serrurier`, `conseiller`. Compiled with a `MemorySaver` checkpointer.
+
+---
+
 ## Declaration Agent
 
 ```mermaid

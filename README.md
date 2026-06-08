@@ -28,16 +28,53 @@ Out of all possible claim types, this project focuses on three:
 | **Validation Agent** | Automatically verifies contract coverage against the declared claim |
 | **Expertise Agent** | Estimates repair costs via image analysis (leaks, cracks, material damage) |
 
-Agents are orchestrated via a multi-agent system or a purpose-built workflow.
+Agents are orchestrated by a **parent LangGraph pipeline** (`src/agents/orchestrator/`)
+that chains them with conditional branching and human-in-the-loop gates for external
+interlocutors (plombier, expert, serrurier, conseiller). See the Orchestration section below.
 
 See [GRAPHS.md](GRAPHS.md) for Mermaid diagrams of each agent's internal flow.
+
+---
+
+## Orchestration
+
+The full pipeline is a parent LangGraph (`src/agents/orchestrator/`) composing the three
+agent subgraphs as nodes:
+
+```
+declaration → validation ─┬─ rejected ───────────────► decision (rejected)
+                          └─ approved → expertise → quote_gate → expert_gate → advisor_gate → decision
+```
+
+**Human-in-the-loop.** When an agent needs an external interlocutor, a gate node either:
+
+- injects a **pre-seeded** answer from the scenario's `human_responses` dict (reproducible,
+  used by tests/eval), or
+- **`interrupt()`s** the graph for **live console input**, resumed via `Command(resume=...)`.
+
+| Gate | Interlocutor | Triggered when |
+|---|---|---|
+| `quote_gate` | plombier (water) / expert (fire) / serrurier (theft) | by incident type |
+| `expert_gate` | expert | `severity == "high"` |
+| `advisor_gate` | conseiller | always — final compensation decision |
+
+The pipeline output is a `decision` dict:
+
+```python
+{
+  "approved": bool,
+  "final_amount": (int, int),  # 2-tuple; (0, 0) when rejected
+  "advisor_note": str,
+  "quotes": {"plombier"?: ..., "expert"?: ..., "serrurier"?: ...},
+}
+```
 
 ---
 
 ## Constraints
 
 - **Data stays on-premise** — no calls to OpenAI, Anthropic, or any external API; all inference runs locally
-- **Open-weight models only** — currently Qwen2.5-7B-Instruct for text (tool calling + generation); a VLM will be required for the Expertise Agent (image analysis)
+- **Open-weight models only** — Qwen2.5-7B-Instruct for text (tool calling + generation) and Qwen2.5-VL-7B-Instruct for vision (photo coherence + damage severity), with no domain-specific fine-tuning
 - **GPU required** — Declaration Agent (Qwen2.5-7B-Instruct) and Validation Agent (Qwen2.5-VL-7B-Instruct for photo coherence) both require a CUDA/MPS-capable device
 - **No UI** — the pipeline runs asynchronously in the background, one graph invocation per claim
 - **Structured handoff** — each agent outputs a typed dict consumed directly by the next; no free-text passing between agents
@@ -62,34 +99,52 @@ cp .env.example .env
 # Add your HuggingFace token to .env
 ```
 
-Run 6 simulated examples (Declaration → Validation → Expertise pipeline):
+Run the orchestrated pipeline on all simulated examples (Declaration → Validation →
+Expertise → human gates → decision):
 ```bash
 uv run python -m src.main
 ```
 
-Run Declaration Agent evaluation:
+Scenarios with a `human_responses` dict run unattended; others pause at each gate and
+prompt for the interlocutor's answer on the console.
+
+Evaluate agents against the golden dataset:
 ```bash
-uv run python scripts/evaluate_declaration.py
+# Model-free (run anywhere):
+uv run python scripts/evaluate_validation.py       # validation factual accuracy
+uv run python scripts/evaluate_orchestration.py    # provider selection precision
+
+# Needs the GPU (declaration uses the LLM):
+uv run python scripts/evaluate_declaration.py       # field completeness
+uv run python scripts/evaluate_agents.py            # all three → data/evaluation_results.csv
 ```
 
-Run Validation Agent evaluation:
+Run the test suite:
 ```bash
-uv run python scripts/evaluate_validation.py
+uv run pytest
 ```
 
 ---
 
 ## Evaluation
 
-Agents are evaluated against Golden Datasets built for this project. No threshold is defined yet — metrics serve as a baseline for discussion.
+Agents are evaluated **in isolation** (each fed gold inputs, so errors don't cascade)
+against a unified Golden Dataset: `data/golden_dataset_full.json` — 9 cases, 3 per family
+(water_damage, fire, theft), each carrying the expected input/output for every agent. Each
+case uses a fixed `today_override` for reproducibility.
 
-| Agent | Dataset | Metric |
+| Agent | Metric | Model needed |
 |---|---|---|
-| **Declaration Agent** | `data/golden_dataset.json` (3 cases) | Completeness of collected fields |
-| **Validation Agent** | `data/golden_dataset_validation.json` (6 cases) | Accuracy of verdict (approved / rejected) |
-| **Expertise Agent** | — | No automated evaluation — assessed manually by domain experts |
+| **Declaration** | Field completeness (presence of date / incident_type / description / has_photos) | Yes (LLM) |
+| **Validation** | Verdict accuracy + correct contract facts (ceiling / deductible) | No (rule-based) |
+| **Orchestration** | Provider-selection precision (plombier / expert / serrurier) | No (rule-based) |
+| **Expertise** | — not evaluated (assessed manually by domain experts) | — |
 
-Each dataset uses fixed reference dates (`today_override`) to ensure reproducibility regardless of when evaluation is run.
+`scripts/evaluate_agents.py` consolidates per-case metrics into
+`data/evaluation_results.csv` (columns: completeness, validation status/coverage
+correctness, provider precision) and prints the aggregates. Dedicated single-agent scripts
+(`evaluate_declaration.py`, `evaluate_validation.py`, `evaluate_orchestration.py`) run each
+metric on its own.
 
 ---
 
@@ -97,8 +152,13 @@ Each dataset uses fixed reference dates (`today_override`) to ensure reproducibi
 
 | Source | Usage |
 |---|---|
-| Claims process documentation | Reference for expected steps, insurer obligations, case closure rules |
-| Policyholder's home insurance policy | Reference for coverage validation against the declared claim |
+| `Garanties.md` (contract) | Ceilings, deductibles, declaration deadlines — encoded in `src/agents/validation/rules.py` |
+| `Processus.md` (process) | Per-family claims process + service providers — encoded in `PROVIDER_BY_TYPE` (orchestrator) |
+| `golden_dataset_full.json` | Evaluation reference (9 cases, 3 per family) |
+| `attachments/` | Claim photos analyzed by the VLM (validation coherence + expertise severity) |
+
+These contract/process docs are the authoritative source for the rules; they are not loaded
+at runtime — the values are hard-coded into the agents' rule modules.
 
 ---
 
@@ -107,35 +167,56 @@ Each dataset uses fixed reference dates (`today_override`) to ensure reproducibi
 ```
 src/
 ├── config.py
+├── inference.py        # UnifiedInference — shared LLM + VLM backend
 ├── main.py
 ├── examples.py
-└── agents/
-    ├── declaration/
-    │   ├── state.py
-    │   ├── tools.py
-    │   ├── prompts.py
-    │   ├── inference.py
-    │   └── agent.py
-    ├── validation/
-    │   ├── state.py
-    │   ├── rules.py
-    │   ├── vlm_inference.py
-    │   └── agent.py
-    └── expertise/
-        ├── state.py
-        ├── rules.py
-        ├── prompts.py
-        └── agent.py
+├── agents/
+│   ├── declaration/
+│   │   ├── state.py
+│   │   ├── tools.py
+│   │   ├── prompts.py
+│   │   ├── inference.py
+│   │   └── agent.py
+│   ├── validation/
+│   │   ├── state.py
+│   │   ├── rules.py
+│   │   ├── vlm_inference.py
+│   │   └── agent.py
+│   ├── expertise/
+│   │   ├── state.py
+│   │   ├── rules.py
+│   │   ├── prompts.py
+│   │   └── agent.py
+│   └── orchestrator/
+│       ├── state.py
+│       ├── handoff.py
+│       └── agent.py
+└── eval/
+    ├── metrics.py
+    ├── harness.py
+    └── report.py
 scripts/
 ├── evaluate_declaration.py
-└── evaluate_validation.py
+├── evaluate_validation.py
+├── evaluate_orchestration.py
+└── evaluate_agents.py
+tests/
+├── agents/
+│   ├── declaration/    # test_agent, test_nodes, test_tools, test_inference
+│   ├── validation/     # test_agent, test_rules, test_vlm_inference
+│   └── expertise/      # test_agent, test_rules, test_vlm_inference
+├── test_inference.py
+├── test_orchestrator.py
+├── test_eval_metrics.py
+└── test_eval_dataset.py
 ```
 
 ## Tech Stack
 
-- **Orchestration**: LangGraph (multi-agent workflow)
+- **Orchestration**: LangGraph parent pipeline (`src/agents/orchestrator/`) with conditional
+  routing and `interrupt()`-based human-in-the-loop gates
 - **LLM**: HuggingFace transformers (Qwen2.5-7B-Instruct) — tool calling + follow-up generation
-- **VLM**: HuggingFace transformers (Qwen2.5-VL-7B-Instruct) — photo coherence check
+- **VLM**: HuggingFace transformers (Qwen2.5-VL-7B-Instruct) — photo coherence (validation) + damage severity (expertise)
 - **Testing**: pytest
 
 ---
@@ -159,31 +240,42 @@ The agent converses with the policyholder and ensures the following elements are
 
 ### Incoming declaration examples
 
-**Example 1** — Water damage (missing date)
+The simulated scenarios live in [`src/examples.py`](src/examples.py). Dates are computed
+relative to the run date (e.g. "hier soir"), and attachment filenames refer to real images
+in [`data/attachments/`](data/attachments/).
+
+**Example 1** — Water damage (date provided on a 2nd turn)
 ```
-Hello,
-There was a leak in my kitchen last night due to my upstairs neighbor.
-His dishwasher was poorly installed, and as a result, the wall is soaked
-and the paint is peeling off (photo attached).
-Regards.
-[Attachment: IMG_4580.jpg]
+Bonjour,
+
+Il y a eu une fuite dans ma cuisine hier soir à cause de mon voisin du dessus.
+Son lave-vaisselle a été mal installé et du coup, le mur est infiltré d'eau et
+la peinture se détache (ci-joint une photo).
+
+Cordialement.
+
+[Pièce jointe : WaterDamage_100.jpg]
 ```
 
-**Example 2** — Burglary (missing date and photos)
+**Example 2** — Burglary (no photos available → rejected at conformity)
 ```
-Hello, I was burgled this morning. The thieves came in through the bedroom
-skylight and stole all the electronics. Please contact me as soon as possible.
+Bonjour, on m'a cambriolé ce matin, les voleurs sont passés par le vélux de la
+chambre et ont volé tous les appareils électroniques. Merci de me contacter
+rapidement.
 ```
 
-**Example 3** — Fire (complete)
+**Example 3** — Fire (complete in one turn)
 ```
-Hello,
-On 10/09/2025, a fire broke out in the bedroom due to a faulty appliance
-and damaged a large part of the room. I would like to be compensated to
-carry out the necessary repairs.
-Kind regards.
-[Attachment: Chambre_1.jpg]
-[Attachment: Chambre_2.jpg]
+Bonjour,
+
+Le <date>, un feu s'est déclaré dans la chambre à cause d'un appareil défectueux,
+et a endommagé une grande partie de la pièce. Je souhaiterai être indemnisé pour
+pouvoir effectuer les travaux nécessaires.
+
+Bien cordialement.
+
+[Pièce jointe : FireDamage_45.jpg]
+[Pièce jointe : FireDamage_31.jpg]
 ```
 
 ---
