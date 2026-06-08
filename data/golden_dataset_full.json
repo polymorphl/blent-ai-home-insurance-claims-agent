@@ -1,0 +1,129 @@
+[
+  {
+    "id": "water_1_approved",
+    "family": "water_damage",
+    "description": "Dégât des eaux, date fournie au 2e tour, photo jointe — approuvé",
+    "turns": [
+      {"role": "user", "content": "Bonjour, il y a eu une fuite dans ma cuisine à cause du lave-vaisselle de mon voisin du dessus. Le mur est infiltré et la peinture se détache. [Pièce jointe : WaterDamage_100.jpg]"},
+      {"role": "user", "content": "La fuite a été constatée le 01/06/2026."}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-01", "incident_type": "water_damage", "description": "fuite cuisine, mur infiltré, peinture qui se détache", "has_photos": true},
+      "validation": {"status": "approved", "ceiling": 25000, "deductible": 150},
+      "orchestration": {"provider": "plombier"}
+    }
+  },
+  {
+    "id": "water_2_deadline_exceeded",
+    "family": "water_damage",
+    "description": "Dégât des eaux déclaré bien après 5 jours ouvrés — rejeté (délai)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, une rupture de canalisation a eu lieu le 20/05/2026 dans mon salon, parquet gondolé. Je déclare aujourd'hui. [Pièce jointe : WaterDamage_176.jpg]"}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-05-20", "incident_type": "water_damage", "description": "rupture de canalisation, parquet gondolé", "has_photos": true},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "plombier"}
+    }
+  },
+  {
+    "id": "water_3_no_photos",
+    "family": "water_damage",
+    "description": "Dégât des eaux sans photo — rejeté (conformité)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, fuite sous l'évier le 02/06/2026, le placard est gorgé d'eau. Je n'ai pas pris de photos."}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-02", "incident_type": "water_damage", "description": "fuite sous l'évier, placard gorgé d'eau", "has_photos": false},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "plombier"}
+    }
+  },
+  {
+    "id": "fire_1_approved",
+    "family": "fire",
+    "description": "Incendie déclaré 2 jours ouvrés après, photos jointes — approuvé",
+    "turns": [
+      {"role": "user", "content": "Bonjour, le 02/06/2026 un feu s'est déclaré dans la chambre à cause d'un appareil défectueux, une grande partie de la pièce est endommagée. [Pièce jointe : FireDamage_45.jpg]\n[Pièce jointe : FireDamage_31.jpg]"}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-02", "incident_type": "fire", "description": "feu dans la chambre, appareil défectueux, pièce endommagée", "has_photos": true},
+      "validation": {"status": "approved", "ceiling": 100000, "deductible": 300},
+      "orchestration": {"provider": "expert"}
+    }
+  },
+  {
+    "id": "fire_2_deadline_exceeded",
+    "family": "fire",
+    "description": "Incendie déclaré bien après 5 jours ouvrés — rejeté (délai)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, un incendie a touché ma cuisine le 15/05/2026, dégâts importants sur les meubles. Je déclare maintenant. [Pièce jointe : FireDamage_45.jpg]"}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-05-15", "incident_type": "fire", "description": "incendie cuisine, meubles endommagés", "has_photos": true},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "expert"}
+    }
+  },
+  {
+    "id": "fire_3_no_photos",
+    "family": "fire",
+    "description": "Incendie sans photo — rejeté (conformité)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, départ de feu dans le séjour le 03/06/2026 suite à une bougie, mur noirci. Je n'ai pas de photos."}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-03", "incident_type": "fire", "description": "départ de feu séjour, mur noirci", "has_photos": false},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "expert"}
+    }
+  },
+  {
+    "id": "theft_1_approved",
+    "family": "theft",
+    "description": "Vol déclaré 1 jour ouvré après, photo jointe — approuvé (délai 2j)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, on m'a cambriolé le 03/06/2026, les voleurs sont passés par le vélux et ont volé les appareils électroniques. [Pièce jointe : photo_effraction.jpg]"}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-03", "incident_type": "theft", "description": "cambriolage par le vélux, appareils électroniques volés", "has_photos": true},
+      "validation": {"status": "approved", "ceiling": 20000, "deductible": 200},
+      "orchestration": {"provider": "serrurier"}
+    }
+  },
+  {
+    "id": "theft_2_deadline_exceeded",
+    "family": "theft",
+    "description": "Vol déclaré 5 jours ouvrés après — rejeté (limite 2j)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, cambriolage par effraction de la porte d'entrée le 28/05/2026, télévision et bijoux volés. Je déclare aujourd'hui. [Pièce jointe : photo_effraction.jpg]"}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-05-28", "incident_type": "theft", "description": "cambriolage effraction porte, télévision et bijoux volés", "has_photos": true},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "serrurier"}
+    }
+  },
+  {
+    "id": "theft_3_no_photos",
+    "family": "theft",
+    "description": "Vol sans photo — rejeté (conformité)",
+    "turns": [
+      {"role": "user", "content": "Bonjour, vol avec effraction le 03/06/2026, on a forcé la fenêtre et volé mon ordinateur. Je n'ai pas de photos de l'effraction."}
+    ],
+    "today_override": "2026-06-04",
+    "expected": {
+      "declaration": {"date": "2026-06-03", "incident_type": "theft", "description": "vol avec effraction fenêtre, ordinateur volé", "has_photos": false},
+      "validation": {"status": "rejected"},
+      "orchestration": {"provider": "serrurier"}
+    }
+  }
+]

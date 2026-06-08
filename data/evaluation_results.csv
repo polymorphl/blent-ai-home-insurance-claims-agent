@@ -1,0 +1,10 @@
+id,family,decl_completeness,decl_fields_ok,val_status,val_status_expected,val_status_correct,val_coverage_correct,orch_provider,orch_provider_expected,orch_provider_correct
+water_1_approved,water_damage,1.0,4/4,approved,approved,True,True,plombier,plombier,True
+water_2_deadline_exceeded,water_damage,1.0,4/4,rejected,rejected,True,True,plombier,plombier,True
+water_3_no_photos,water_damage,1.0,4/4,rejected,rejected,True,True,plombier,plombier,True
+fire_1_approved,fire,1.0,4/4,approved,approved,True,True,expert,expert,True
+fire_2_deadline_exceeded,fire,1.0,4/4,rejected,rejected,True,True,expert,expert,True
+fire_3_no_photos,fire,1.0,4/4,rejected,rejected,True,True,expert,expert,True
+theft_1_approved,theft,1.0,4/4,approved,approved,True,True,serrurier,serrurier,True
+theft_2_deadline_exceeded,theft,1.0,4/4,rejected,rejected,True,True,serrurier,serrurier,True
+theft_3_no_photos,theft,1.0,4/4,rejected,rejected,True,True,serrurier,serrurier,True
