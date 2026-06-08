@@ -221,6 +221,16 @@ tests/
 
 ---
 
+## Future work
+
+- **Observability** — integrate [Langfuse](https://langfuse.com) to trace each graph run
+  (per-node latency, token usage, gate interrupts/resumes, agent inputs/outputs). LangGraph
+  has a native Langfuse callback handler, so the pipeline could be instrumented without
+  touching agent logic — valuable for debugging and for monitoring SLA/processing-time
+  constraints in production.
+
+---
+
 ## Step 1 — Declaration Agent
 
 **Goal**: Collect all required information to open a claim file.
